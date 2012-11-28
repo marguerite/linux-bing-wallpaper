@@ -25,7 +25,7 @@ Next boots it will run too, but do nothing.
 		mkdir bin
 		wget https://raw.github.com/marguerite/linux-bing-wallpaper/master/bing_wallpaper.sh -o bin/bing_wallpaper.sh
 		# If you use KDE
-		# wget https://raw.github.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh
+		# wget https://raw.github.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh -o bin/kde4_set_wallpaper.sh
 		chmod +x bin/*.sh
 		./bin/bing_wallpaper.sh
 		
