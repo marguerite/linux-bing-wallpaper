@@ -67,8 +67,6 @@ fi
 if [[ `rpm -qa kdebase4-runtime` != "" ]]; then
 test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
 test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
-wget https://raw.github.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh
-chmod +x kde4_set_wallpaper.sh
 ./kde4_set_wallpaper.sh $saveDir$picName
 fi
 

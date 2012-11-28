@@ -11,10 +11,10 @@ EN_CONSOLE2="Plasma Desktop Shell"
 
 if [[ $LOCALE != "" ]]; then
         JS_CONSOLE1=`LANGUAGE=$LOCALE gettext -d plasma-desktop -s "$EN_CONSOLE1"`
-        JS_CONSOLE2=`LANGUAGE=$LOCALE gettext -d plasma-desktop -s "$EN_CONSOLE2"`
-        JS_CONSOLE="$JS_CONSOLE1 - $JS_CONSOLE2"
+	JS_CONSOLE2=`LANGUAGE=$LOCALE gettext -d plasma-desktop -s "$EN_CONSOLE2"`
+	JS_CONSOLE="$JS_CONSOLE1 – $JS_CONSOLE2"
 else
-        JS_CONSOLE="$EN_CONSOLE1 - $EN_CONSOLE2"
+        JS_CONSOLE="$EN_CONSOLE1 – $EN_CONSOLE2"
 fi
 
 js=$(mktemp)
