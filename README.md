@@ -28,15 +28,4 @@ Next boots it will run too, but do nothing.
 		# wget https://raw.github.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh -o bin/kde4_set_wallpaper.sh
 		chmod +x bin/*.sh
 		./bin/bing_wallpaper.sh
-		
 
-## Crontab
-
-You can also use cron jobs for them. But I didn't success on KDE4. Because it needs to prompt a KDE JS Console, but the user runs cron has no permission to GUI programs. You may try on GNOME.
-
-		crontab -e
-		1 0 * * * /home/YOUR_USERNAME/PATH/TO/SCRIPTS/bing_wallpaper.sh > /home/YOUR_USERNAME/.cronjob.log
-
-Remove user crontabs
-
-		sudo rm -rf /var/spool/cron/tabs/YOUR_USERNAME
