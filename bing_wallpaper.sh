@@ -35,40 +35,112 @@ picOpts="zoom"
 # The file extension for the Bing pic
 picExt=".jpg"
 
+
+#detectDE
+detectDE()
+{
+    # see https://bugs.freedesktop.org/show_bug.cgi?id=34164
+    unset GREP_OPTIONS
+
+    if [ -n "${XDG_CURRENT_DESKTOP}" ]; then
+      case "${XDG_CURRENT_DESKTOP}" in
+         GNOME)
+           DE=gnome;
+           ;;
+         KDE)
+           DE=kde;
+           ;;
+         LXDE)
+           DE=lxde;
+           ;;
+         MATE)
+           DE=mate;
+           ;;
+         XFCE)
+           DE=xfce
+           ;;
+      esac
+    fi
+
+    if [ x"$DE" = x"" ]; then
+      # classic fallbacks
+      if [ x"$KDE_FULL_SESSION" = x"true" ]; then DE=kde;
+      elif [ x"$GNOME_DESKTOP_SESSION_ID" != x"" ]; then DE=gnome;
+      elif [ x"$MATE_DESKTOP_SESSION_ID" != x"" ]; then DE=mate;
+      elif `dbus-send --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.GetNameOwner string:org.gnome.SessionManager > /dev/null 2>&1` ; then DE=gnome;
+      elif xprop -root _DT_SAVE_MODE 2> /dev/null | grep ' = \"xfce4\"$' >/dev/null 2>&1; then DE=xfce;
+      elif xprop -root 2> /dev/null | grep -i '^xfce_desktop_window' >/dev/null 2>&1; then DE=xfce
+      fi
+    fi
+
+    if [ x"$DE" = x"" ]; then
+      # fallback to checking $DESKTOP_SESSION
+      case "$DESKTOP_SESSION" in
+         gnome)
+           DE=gnome;
+           ;;
+         LXDE|Lubuntu)
+           DE=lxde; 
+           ;;
+         MATE)
+           DE=mate;
+           ;;
+         xfce|xfce4|'Xfce Session')
+           DE=xfce;
+           ;;
+      esac
+    fi
+
+    if [ x"$DE" = x"gnome" ]; then
+      # gnome-default-applications-properties is only available in GNOME 2.x
+      # but not in GNOME 3.x
+      which gnome-default-applications-properties > /dev/null 2>&1  || DE="gnome3"
+    fi
+}
+
 # Download the highest resolution
+while true; do
 
-for picRes in _1920x1200 _1366x768 _1280x720 _1024x768; do
+    TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
+    TOMORROW=$(date --date="$TOMORROW 01:00:00" +%s)
+    
+    for picRes in _1920x1200 _1366x768 _1280x720 _1024x768; do
 
-# Extract the relative URL of the Bing pic of the day from
-# the XML data retrieved from xmlURL, form the fully qualified
-# URL for the pic of the day, and store it in $picURL
-picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
+    # Extract the relative URL of the Bing pic of the day from
+    # the XML data retrieved from xmlURL, form the fully qualified
+    # URL for the pic of the day, and store it in $picURL
+    picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
-# $picName contains the filename of the Bing pic of the day
-picName=${picURL#*2f}
+    # $picName contains the filename of the Bing pic of the day
+    picName=${picURL#*2f}
 
-# Download the Bing pic of the day
-curl -s -o $saveDir$picName $picURL
+    # Download the Bing pic of the day
+    curl -s -o $saveDir$picName $picURL
 
-# Test if it's a pic
-file $saveDir$picName | grep HTML && rm -rf $saveDir$picName && continue
+    # Test if it's a pic
+    file $saveDir$picName | grep HTML && rm -rf $saveDir$picName && continue
 
-break
+    break
+    done
+    detectDE 
+
+    if [[ $DE = "gnome" ]]; then
+    # Set the GNOME3 wallpaper
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
+
+    # Set the GNOME 3 wallpaper picture options
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
+    fi
+
+    if [[ $DE = "kde" ]]; then
+    test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
+    test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
+    ./kde4_set_wallpaper.sh $saveDir$picName
+    fi
+    
+    NOW=$(date +%s)
+    SLEEP=`echo $TOMORROW-$NOW|bc`
+    sleep $SLEEP
 done
-
-if [[ `rpm -qa gnome-session` != "" ]]; then
-# Set the GNOME3 wallpaper
-DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
-
-# Set the GNOME 3 wallpaper picture options
-DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
-fi
-
-if [[ `rpm -qa kdebase4-runtime` != "" ]]; then
-test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
-test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
-./kde4_set_wallpaper.sh $saveDir$picName
-fi
-
 # Exit the script
 exit 0
