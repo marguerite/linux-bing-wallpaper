@@ -102,7 +102,7 @@ detectDE()
 while true; do
 
     TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
-    TOMORROW=$(date --date="$TOMORROW 01:00:00" +%s)
+    TOMORROW=$(date --date="$TOMORROW 00:10:00" +%s)
     
     for picRes in _1920x1200 _1366x768 _1280x720 _1024x768; do
 
