@@ -10,7 +10,7 @@ bing="www.bing.com"
 
 # The mkt parameter determines which Bing market you would like to
 # obtain your images from.
-# Valid values are: en-US, zh-CN, ja-JP, en-AU, en-UK, de-DE, en-NZ, en-CA.
+# Valid values are: de-DE en-AU en-CA en-GB en-US es-US fr-CA fr-FR ja-JP zh-CN.
 mkt="zh-CN"
 
 # The idx parameter determines where to start from. 0 is the current day,
