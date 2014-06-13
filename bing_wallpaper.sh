@@ -112,7 +112,7 @@ while true; do
     picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
     # $picName contains the filename of the Bing pic of the day
-    picName=${picURL#*2f}
+    picName=${picURL##*/}
 
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName $picURL
@@ -135,7 +135,7 @@ while true; do
     if [[ $DE = "kde" ]]; then
     test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
     test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
-    ./kde4_set_wallpaper.sh $saveDir$picName
+    `dirname $0`/kde4_set_wallpaper.sh $saveDir$picName
     fi
     
     NOW=$(date +%s)
