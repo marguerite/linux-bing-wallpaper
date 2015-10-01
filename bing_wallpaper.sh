@@ -191,6 +191,10 @@ while true; do
       ./kde4_set_wallpaper.sh $saveDir$picName
     fi
 
+    if [[ $DE = "xfce" ]]; then
+    ./xfce4_set_wallpaper.sh $saveDir$picName
+    fi
+
     if [ "$exitAfterRunning" = true ] ; then
       # Exit the script
       exit 0
