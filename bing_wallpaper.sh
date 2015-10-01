@@ -153,7 +153,7 @@ while true; do
     picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
     # $picName contains the filename of the Bing pic of the day
-    picName=`echo "$picURL" | sed "s/.*\///"`
+    picName=${picURL##*/}
 
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName -L $picURL
