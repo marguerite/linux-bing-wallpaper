@@ -16,7 +16,15 @@ done
 
 wallpaper=$1
 # TODO: when monitor name is NULL, changed to number
-monitor=$(xrandr | grep " connected" | cut -d' ' -f1)
+monitor=($(xrandr | grep " connected" | cut -d' ' -f1))
+
+if [ ${#monitor[@]} -gt 1 ] ; then
+	exp="\("
+	for m in ${monitor[@]} ; do
+		exp+="$m\|"
+	done
+	monitor="${exp::-2}\)"
+fi
 
 properties=$(xfconf-query -c xfce4-desktop -p /backdrop -l | grep -e "screen.*/monitor${monitor}.*image-path$" -e "screen.*/monitor${monitor}.*/last-image$")
 
