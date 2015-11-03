@@ -15,6 +15,14 @@ for tool in ${tools[@]} ; do
 done
 
 wallpaper=$1
+
+# check image
+mime_type=`file --mime-type -b "$wallpaper"`
+if [[ ! "$mime_type" == image/* ]]; then
+	echo "Invalid image"
+	exit 1
+fi
+
 # TODO: when monitor name is NULL, changed to number
 monitor=($(xrandr | grep " connected" | cut -d' ' -f1))
 
@@ -29,5 +37,5 @@ fi
 properties=$(xfconf-query -c xfce4-desktop -p /backdrop -l | grep -e "screen.*/monitor${monitor}.*image-path$" -e "screen.*/monitor${monitor}.*/last-image$")
 
 for property in $properties; do
-	xfconf-query -c xfce4-desktop -p $property -s $wallpaper
+	xfconf-query -c xfce4-desktop -p $property -s "$wallpaper"
 done
