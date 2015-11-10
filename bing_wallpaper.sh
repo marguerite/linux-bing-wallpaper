@@ -11,7 +11,7 @@ bing="www.bing.com"
 # The mkt parameter determines which Bing market you would like to
 # obtain your images from.
 # Valid values are: en-US, zh-CN, ja-JP, en-AU, en-UK, de-DE, en-NZ, en-CA.
-mkt="zh-CN"
+mkt="en-US"
 
 # The idx parameter determines where to start from. 0 is the current day,
 # 1 the previous day, etc.
@@ -80,7 +80,7 @@ detectDE()
            DE=gnome;
            ;;
          LXDE|Lubuntu)
-           DE=lxde; 
+           DE=lxde;
            ;;
          MATE)
            DE=mate;
@@ -103,7 +103,7 @@ while true; do
 
     TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
     TOMORROW=$(date --date="$TOMORROW 00:10:00" +%s)
-    
+
     for picRes in _1920x1200 _1366x768 _1280x720 _1024x768; do
 
     # Extract the relative URL of the Bing pic of the day from
@@ -112,7 +112,7 @@ while true; do
     picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
     # $picName contains the filename of the Bing pic of the day
-    picName=${picURL#*2f}
+    picName=`echo "$picURL" | sed "s/.*\///"`
 
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName $picURL
@@ -122,9 +122,17 @@ while true; do
 
     break
     done
-    detectDE 
+    detectDE
 
     if [[ $DE = "gnome" ]]; then
+    # Set the GNOME 2 wallpaper
+    gconftool-2 -s -t string /desktop/gnome/background/picture_filename "$saveDir$picName"
+
+    # Set the GNOME 2 wallpaper picture options
+    gconftool-2 -s -t string /desktop/gnome/background/picture_options "$picOpts"
+    fi
+
+    if [[ $DE = "gnome3" ]]; then
     # Set the GNOME3 wallpaper
     DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
 
@@ -137,7 +145,7 @@ while true; do
     test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
     ./kde4_set_wallpaper.sh $saveDir$picName
     fi
-    
+
     NOW=$(date +%s)
     SLEEP=`echo $TOMORROW-$NOW|bc`
     sleep $SLEEP
