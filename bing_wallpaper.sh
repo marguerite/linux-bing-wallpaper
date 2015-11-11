@@ -4,6 +4,19 @@
 # Description: Download Bing Wallpaper of the Day and set it as your Linux Desktop.
 # https://github.com/marguerite/linux-bing-wallpaper
 
+function contains() {
+    local n=$#
+    local value=${!n}
+    for ((i=1;i < $#;i++)) {
+        if [ "${!i}" == "${value}" ]; then
+            echo "y"
+            return 0
+        fi
+    }
+    echo "n"
+    return 1
+}
+
 if [ "$#" == 0 ] ; then
   # The mkt parameter determines which Bing market you would like to
   # obtain your images from.
@@ -14,7 +27,7 @@ elif [ "$#" == 2 ] ; then
   # Valid values are:
   declare -a list=("en-US" "zh-CN" "ja-JP" "en-AU" "en-UK" "de-DE" "en-NZ" "en-CA")
 
-  if [[ $list =~ $1 ]] ; then
+  if [ $(contains "${list[@]}" $1) == "y" ]; then
     mkt=$1
   else
     echo "mkt must be one of the following:"
