@@ -37,3 +37,8 @@ Next boots it will run too, but do nothing.
         # (otherwise, script will sleep 24 hrs)
         ./bin/bing_wallpaper.sh en-US true
 
+## Example cron usage (crontab -e for your user)
+```
+# m h dom mon dow command
+* * * * * ~/bin/bing_wallpaper.sh en-US true
+```
