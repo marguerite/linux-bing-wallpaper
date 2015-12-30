@@ -1,17 +1,60 @@
 #!/bin/sh
 # Author: Marguerite Su <i@marguerite.su>
-# Version: 1.0
 # License: GPL-3.0
 # Description: Download Bing Wallpaper of the Day and set it as your Linux Desktop.
+# https://github.com/marguerite/linux-bing-wallpaper
+
+function contains() {
+    local n=$#
+    local value=${!n}
+    for ((i=1;i < $#;i++)) {
+        if [ "${!i}" == "${value}" ]; then
+            echo "y"
+            return 0
+        fi
+    }
+    echo "n"
+    return 1
+}
+
+# cron  needs the DBUS_SESSION_BUS_ADDRESS environment variable set
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] ; then
+  TMP=~/.dbus/session-bus
+  export $(grep -h DBUS_SESSION_BUS_ADDRESS= $TMP/$(ls -1t $TMP | head -n 1))
+fi
+
+if [ "$#" == 0 ] ; then
+  # The mkt parameter determines which Bing market you would like to
+  # obtain your images from.
+  mkt="zh-CN"
+  exitAfterRunning=false
+
+elif [ "$#" == 2 ] ; then
+  # Valid values are:
+  declare -a list=("en-US" "zh-CN" "ja-JP" "en-AU" "en-UK" "de-DE" "en-NZ" "en-CA")
+
+  if [ $(contains "${list[@]}" $1) == "y" ]; then
+    mkt=$1
+  else
+    echo "mkt must be one of the following:"
+    printf '%s\n' "${list[@]}"
+    exit 1
+  fi
+
+  if [ "$2" = true ] ; then
+    exitAfterRunning=true
+  else
+    exitAfterRunning=false
+  fi
+
+else
+  echo "Usage: `basename $0` mkt[en-US,zh-CN,ja-JP,en-AU,en-UK,de-DE,en-NZ,en-CA] exitAfterRunning[true,false]"
+  exit 1
+fi
 
 # $bing is needed to form the fully qualified URL for
 # the Bing pic of the day
 bing="www.bing.com"
-
-# The mkt parameter determines which Bing market you would like to
-# obtain your images from.
-# Valid values are: de-DE en-AU en-CA en-GB en-US es-US fr-CA fr-FR ja-JP zh-CN.
-mkt="zh-CN"
 
 # The idx parameter determines where to start from. 0 is the current day,
 # 1 the previous day, etc.
@@ -35,8 +78,6 @@ picOpts="zoom"
 # The file extension for the Bing pic
 picExt=".jpg"
 
-
-#detectDE
 detectDE()
 {
     # see https://bugs.freedesktop.org/show_bug.cgi?id=34164
@@ -80,7 +121,7 @@ detectDE()
            DE=gnome;
            ;;
          LXDE|Lubuntu)
-           DE=lxde; 
+           DE=lxde;
            ;;
          MATE)
            DE=mate;
@@ -103,7 +144,7 @@ while true; do
 
     TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
     TOMORROW=$(date --date="$TOMORROW 00:10:00" +%s)
-    
+
     for picRes in _1920x1200 _1366x768 _1280x720 _1024x768; do
 
     # Extract the relative URL of the Bing pic of the day from
@@ -112,7 +153,7 @@ while true; do
     picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
     # $picName contains the filename of the Bing pic of the day
-    picName=$(basename $picURL)
+    picName=`echo "$picURL" | sed "s/.*\///"`
 
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName -L $picURL
@@ -122,14 +163,22 @@ while true; do
 
     break
     done
-    detectDE 
+    detectDE
 
     if [[ $DE = "gnome" ]]; then
-    # Set the GNOME3 wallpaper
-    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
+      # Set the GNOME 2 wallpaper
+      gconftool-2 -s -t string /desktop/gnome/background/picture_filename "$saveDir$picName"
 
-    # Set the GNOME 3 wallpaper picture options
-    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
+      # Set the GNOME 2 wallpaper picture options
+      gconftool-2 -s -t string /desktop/gnome/background/picture_options "$picOpts"
+    fi
+
+    if [[ $DE = "gnome3" ]]; then
+      # Set the GNOME3 wallpaper
+      DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
+
+      # Set the GNOME 3 wallpaper picture options
+      DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
     fi
 
     if [[ $DE = "gnome3" ]]; then
@@ -137,14 +186,17 @@ while true; do
     fi
 
     if [[ $DE = "kde" ]]; then
-    test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
-    test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
-    ./kde4_set_wallpaper.sh $saveDir$picName
+      test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
+      test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
+      ./kde4_set_wallpaper.sh $saveDir$picName
     fi
-    
+
+    if [ "$exitAfterRunning" = true ] ; then
+      # Exit the script
+      exit 0
+    fi
+
     NOW=$(date +%s)
     SLEEP=`echo $TOMORROW-$NOW|bc`
     sleep $SLEEP
 done
-# Exit the script
-exit 0
