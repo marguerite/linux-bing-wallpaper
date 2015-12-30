@@ -156,7 +156,7 @@ while true; do
     picName=`echo "$picURL" | sed "s/.*\///"`
 
     # Download the Bing pic of the day
-    curl -s -o $saveDir$picName $picURL
+    curl -s -o $saveDir$picName -L $picURL
 
     # Test if it's a pic
     file $saveDir$picName | grep HTML && rm -rf $saveDir$picName && continue
@@ -179,6 +179,10 @@ while true; do
 
       # Set the GNOME 3 wallpaper picture options
       DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
+    fi
+
+    if [[ $DE = "gnome3" ]]; then
+    gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
     fi
 
     if [[ $DE = "kde" ]]; then
