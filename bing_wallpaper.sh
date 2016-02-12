@@ -100,6 +100,9 @@ detectDE()
          XFCE)
            DE=xfce
            ;;
+         X-Cinnamon)
+           DE=cinnamon
+           ;; 
       esac
     fi
 
@@ -164,6 +167,14 @@ while true; do
     break
     done
     detectDE
+    
+    if [[ $DE = "cinnamon" ]]; then
+    # Set the Cinnamon wallpaper
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
+
+    # Set the Cinnamon wallpaper picture options
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
+    fi
 
     if [[ $DE = "gnome" ]]; then
       # Set the GNOME 2 wallpaper
