@@ -100,6 +100,9 @@ detectDE()
          XFCE)
            DE=xfce
            ;;
+         X-Cinnamon)
+           DE=cinnamon
+           ;; 
       esac
     fi
 
@@ -153,7 +156,7 @@ while true; do
     picURL=$bing$(echo $(curl -s $xmlURL) | grep -oP "<urlBase>(.*)</urlBase>" | cut -d ">" -f 2 | cut -d "<" -f 1)$picRes$picExt
 
     # $picName contains the filename of the Bing pic of the day
-    picName=`echo "$picURL" | sed "s/.*\///"`
+    picName=${picURL##*/}
 
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName -L $picURL
@@ -164,6 +167,14 @@ while true; do
     break
     done
     detectDE
+    
+    if [[ $DE = "cinnamon" ]]; then
+    # Set the Cinnamon wallpaper
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
+
+    # Set the Cinnamon wallpaper picture options
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
+    fi
 
     if [[ $DE = "gnome" ]]; then
       # Set the GNOME 2 wallpaper
@@ -189,6 +200,10 @@ while true; do
       test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
       test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
       ./kde4_set_wallpaper.sh $saveDir$picName
+    fi
+
+    if [[ $DE = "xfce" ]]; then
+    ./xfce4_set_wallpaper.sh $saveDir$picName
     fi
 
     if [ "$exitAfterRunning" = true ] ; then
