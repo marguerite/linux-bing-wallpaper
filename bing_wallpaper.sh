@@ -162,9 +162,9 @@ while true; do
     curl -s -o $saveDir$picName -L $picURL
 
     # Test if it's a pic
-    file $saveDir$picName | grep HTML && rm -rf $saveDir$picName && continue
+    file --mime-type -b $saveDir$picName | grep "^image/" > /dev/null && break
 
-    break
+    rm -rf $saveDir$picName
     done
     detectDE
     
