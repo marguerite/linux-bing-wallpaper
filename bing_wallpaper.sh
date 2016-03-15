@@ -161,13 +161,24 @@ while true; do
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName -L $picURL
 
+    # Test if download was successful.
+    downloadResult=$?
+    if [[ $downloadResult -ge 1 ]]; then
+        rm -rf $saveDir$picName && continue
+    fi
+
     # Test if it's a pic
     file --mime-type -b $saveDir$picName | grep "^image/" > /dev/null && break
 
     rm -rf $saveDir$picName
     done
     detectDE
-    
+
+    if [[ downloadResult -ge 1 ]]; then
+          echo "Couldn't download any picture."
+          exit 0;
+    fi
+
     if [[ $DE = "cinnamon" ]]; then
     # Set the Cinnamon wallpaper
     DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
