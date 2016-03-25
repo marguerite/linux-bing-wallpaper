@@ -94,6 +94,9 @@ detectDE()
          LXDE)
            DE=lxde;
            ;;
+         LXQt)
+           DE=lxqt;
+           ;;
          MATE)
            DE=mate;
            ;;
@@ -180,11 +183,11 @@ while true; do
     fi
 
     if [[ $DE = "cinnamon" ]]; then
-    # Set the Cinnamon wallpaper
-    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
+          # Set the Cinnamon wallpaper
+          DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
 
-    # Set the Cinnamon wallpaper picture options
-    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
+          # Set the Cinnamon wallpaper picture options
+          DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
     fi
 
     if [[ $DE = "gnome" ]]; then
@@ -213,8 +216,12 @@ while true; do
       ./kde4_set_wallpaper.sh $saveDir$picName
     fi
 
+    if [[ $DE = "lxqt" ]] ; then
+      pcmanfm-qt -w $saveDir$picName
+    fi
+
     if [[ $DE = "xfce" ]]; then
-    ./xfce4_set_wallpaper.sh $saveDir$picName
+      ./xfce4_set_wallpaper.sh $saveDir$picName
     fi
 
     if [ "$exitAfterRunning" = true ] ; then
