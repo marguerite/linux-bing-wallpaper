@@ -107,6 +107,9 @@ detectDE()
            DE=cinnamon
            ;; 
       esac
+    else
+           # DE not found, maybe used WM
+           DE=WM
     fi
 
     if [ x"$DE" = x"" ]; then
@@ -222,6 +225,10 @@ while true; do
 
     if [[ $DE = "xfce" ]]; then
       ./xfce4_set_wallpaper.sh $saveDir$picName
+    fi
+
+    if [[ $DE = "WM" ]]; then
+      feh --bg-tile $saveDir$picName
     fi
 
     if [ "$exitAfterRunning" = true ] ; then
