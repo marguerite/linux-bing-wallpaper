@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Author: Marguerite Su <i@marguerite.su>
 # License: GPL-3.0
 # Description: Download Bing Wallpaper of the Day and set it as your Linux Desktop.

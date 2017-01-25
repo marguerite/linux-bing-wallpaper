@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Author: Weitian Leung <weitianleung@gmail.com>
 # Version: 2.0

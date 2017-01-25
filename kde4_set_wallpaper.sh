@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Author: Marguerite Su <i@marguerite.su>
 # Version: 1.0
 # License: GPL-3.0
