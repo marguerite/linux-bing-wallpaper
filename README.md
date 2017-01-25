@@ -2,7 +2,7 @@
 
 It sets Bing.com wallpaper of the Day as your Linux Desktop
 
-supports XFCE4, GNOME (2 and 3) and KDE4.
+supports XFCE4, GNOME (2 and 3) and KDE4, as well fallback to feh.
 
 ## Usage
 
