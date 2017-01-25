@@ -209,8 +209,8 @@ while true; do
       DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
     fi
 
-    if [[ $DE = "gnome3" ]]; then
-    gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
+    if [[ $DE = "mate" ]]; then
+      dconf write /org/mate/desktop/background/picture-filename \"$saveDir$picName\"
     fi
 
     if [[ $DE = "kde" ]]; then
