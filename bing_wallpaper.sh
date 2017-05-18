@@ -223,6 +223,10 @@ while true; do
       pcmanfm-qt -w $saveDir$picName
     fi
 
+    if [[ $DE = "lxde" ]] ; then
+      pcmanfm -w $saveDir$picName
+    fi    
+
     if [[ $DE = "xfce" ]]; then
       ./xfce4_set_wallpaper.sh $saveDir$picName
     fi
