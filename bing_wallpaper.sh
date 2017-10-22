@@ -27,7 +27,7 @@ if [ "$#" == 0 ] ; then
   # The mkt parameter determines which Bing market you would like to
   # obtain your images from.
   mkt="zh-CN"
-  exitAfterRunning=true
+  exitAfterRunning=false
 
 elif [ "$#" == 2 ] ; then
   # Valid values are:
@@ -152,15 +152,15 @@ detectDE()
 
 waitForNext()
 {
-	if $exitAfterRunning ; then
-      # Exit the script
-      exit 0
-    fi
+  if $exitAfterRunning ; then
+    # Exit the script
+    exit 0
+  fi
 
-    NOW=$(date +%s)
-    SLEEP=`echo $TOMORROW-$NOW|bc`
-    echo "Sleeping for $SLEEP Seconds"
-    sleep $SLEEP
+  NOW=$(date +%s)
+  SLEEP=`echo $TOMORROW-$NOW|bc`
+  echo "Sleeping for $SLEEP Seconds"
+  sleep $SLEEP
 }
 
 setWallpaper()
