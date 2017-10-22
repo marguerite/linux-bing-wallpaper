@@ -27,7 +27,7 @@ if [ "$#" == 0 ] ; then
   # The mkt parameter determines which Bing market you would like to
   # obtain your images from.
   mkt="zh-CN"
-  exitAfterRunning=false
+  exitAfterRunning=true
 
 elif [ "$#" == 2 ] ; then
   # Valid values are:
@@ -66,7 +66,9 @@ xmlURL="http://www.bing.com/HPImageArchive.aspx?format=xml&idx=$idx&n=1&mkt=$mkt
 
 # $saveDir is used to set the location where Bing pics of the day
 # are stored.  $HOME holds the path of the current user's home directory
-saveDir=$HOME'/Pictures/Bing/'
+saveDir=$HOME'/.config/bing-wallpaper/'
+# $lastFile is the file where the name of the last wallpaper is saved
+lastFile=".last"
 
 # Create saveDir if it does not already exist
 mkdir -p $saveDir
@@ -148,13 +150,86 @@ detectDE()
     fi
 }
 
+waitForNext()
+{
+	if $exitAfterRunning ; then
+      # Exit the script
+      exit 0
+    fi
+
+    NOW=$(date +%s)
+    SLEEP=`echo $TOMORROW-$NOW|bc`
+    echo "Sleeping for $SLEEP Seconds"
+    sleep $SLEEP
+}
+
+setWallpaper()
+{
+  if [[ $DE = "cinnamon" ]]; then
+    # Set the Cinnamon wallpaper
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
+    # Set the Cinnamon wallpaper picture options
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
+  fi
+
+  if [[ $DE = "gnome" ]]; then
+    # Set the GNOME 2 wallpaper
+    gconftool-2 -s -t string /desktop/gnome/background/picture_filename "$saveDir$picName"
+    # Set the GNOME 2 wallpaper picture options
+    gconftool-2 -s -t string /desktop/gnome/background/picture_options "$picOpts"
+  fi
+
+  if [[ $DE = "gnome3" ]]; then
+    # Set the GNOME3 wallpaper
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
+    # Set the GNOME 3 wallpaper picture options
+    DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
+  fi
+
+  if [[ $DE = "mate" ]]; then
+    dconf write /org/mate/desktop/background/picture-filename \"$saveDir$picName\"
+  fi
+
+  if [[ $DE = "kde" ]]; then
+    test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
+    test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
+    ./kde4_set_wallpaper.sh $saveDir$picName
+  fi
+
+  if [[ $DE = "lxqt" ]] ; then
+    pcmanfm-qt -w $saveDir$picName
+  fi
+
+  if [[ $DE = "xfce" ]]; then
+    ./xfce4_set_wallpaper.sh $saveDir$picName
+  fi
+
+  if [[ $DE = "WM" ]]; then
+    feh --bg-scale $saveDir$picName
+  fi
+  echo $picName > $saveDir$lastFile
+}
+
+if [ ! -e "$saveDir$lastFile" ] ; then
+  touch "$saveDir$lastFile"
+else
+  lastPic=$(cat $saveDir$lastFile)
+  isValid=false
+  file --mime-type -b $saveDir$lastPic | grep "^image/" > /dev/null && isValid=true
+  if $isValid; then
+    picName=$lastPic
+    detectDE
+    setWallpaper
+    echo "Last pic found $picName"
+  fi
+fi
+
 # Download the highest resolution
 while true; do
+  TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
+  TOMORROW=$(date --date="$TOMORROW 00:10:00" +%s)
 
-    TOMORROW=$(date --date="tomorrow" +%Y-%m-%d)
-    TOMORROW=$(date --date="$TOMORROW 00:10:00" +%s)
-
-    for picRes in _1920x1200 _1920x1080 _1366x768 _1280x720 _1024x768; do
+  for picRes in _1920x1200 _1920x1080 _1366x768 _1280x720 _1024x768; do
 
     # Extract the relative URL of the Bing pic of the day from
     # the XML data retrieved from xmlURL, form the fully qualified
@@ -164,79 +239,50 @@ while true; do
     # $picName contains the filename of the Bing pic of the day
     picName=${picURL##*/}
 
+	isValid=false
+	file --mime-type -b $saveDir$picName | grep "^image/" > /dev/null && isValid=true
+	if $isValid; then
+		downloadResult="unneeded"
+		break
+	fi
+
     # Download the Bing pic of the day
     curl -s -o $saveDir$picName -L $picURL
 
     # Test if download was successful.
     downloadResult=$?
     if [[ $downloadResult -ge 1 ]]; then
-        rm -rf $saveDir$picName && continue
+      rm -rf $saveDir$picName && continue
     fi
 
     # Test if it's a pic
     file --mime-type -b $saveDir$picName | grep "^image/" > /dev/null && break
 
     rm -rf $saveDir$picName
-    done
-    detectDE
+  done
 
-    if [[ downloadResult -ge 1 ]]; then
-          echo "Couldn't download any picture."
-          exit 0;
+  detectDE
+
+  if [[ $downloadResult == "unneeded" ]]; then
+    if [[ $lastPic == $picName ]]; then
+      echo "Picture already downloaded. But Picture already set."
+      waitForNext
+    else
+      echo "Picture already downloaded. Setting $picName."
+      setWallpaper
+      waitForNext
     fi
-
-    if [[ $DE = "cinnamon" ]]; then
-          # Set the Cinnamon wallpaper
-          DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-uri '"file://'$saveDir$picName'"'
-
-          # Set the Cinnamon wallpaper picture options
-          DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.cinnamon.desktop.background picture-options $picOpts
+  elif [[ $downloadResult -ge 1 ]]; then
+    echo "Could not download. Trying again in 2s!"
+    sleep 2s
+  else
+    if [[ $lastPic == $picName ]]; then
+      echo "Downloaded successfully. But Picture already set."
+    else
+      echo "Downloaded successfully. Setting $picName."
+      setWallpaper
     fi
-
-    if [[ $DE = "gnome" ]]; then
-      # Set the GNOME 2 wallpaper
-      gconftool-2 -s -t string /desktop/gnome/background/picture_filename "$saveDir$picName"
-
-      # Set the GNOME 2 wallpaper picture options
-      gconftool-2 -s -t string /desktop/gnome/background/picture_options "$picOpts"
-    fi
-
-    if [[ $DE = "gnome3" ]]; then
-      # Set the GNOME3 wallpaper
-      DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-uri '"file://'$saveDir$picName'"'
-
-      # Set the GNOME 3 wallpaper picture options
-      DISPLAY=:0 GSETTINGS_BACKEND=dconf gsettings set org.gnome.desktop.background picture-options $picOpts
-    fi
-
-    if [[ $DE = "mate" ]]; then
-      dconf write /org/mate/desktop/background/picture-filename \"$saveDir$picName\"
-    fi
-
-    if [[ $DE = "kde" ]]; then
-      test -e /usr/bin/xdotool || sudo zypper --no-refresh install xdotool
-      test -e /usr/bin/gettext || sudo zypper --no-refresh install gettext-runtime
-      ./kde4_set_wallpaper.sh $saveDir$picName
-    fi
-
-    if [[ $DE = "lxqt" ]] ; then
-      pcmanfm-qt -w $saveDir$picName
-    fi
-
-    if [[ $DE = "xfce" ]]; then
-      ./xfce4_set_wallpaper.sh $saveDir$picName
-    fi
-
-    if [[ $DE = "WM" ]]; then
-      feh --bg-tile $saveDir$picName
-    fi
-
-    if [ "$exitAfterRunning" = true ] ; then
-      # Exit the script
-      exit 0
-    fi
-
-    NOW=$(date +%s)
-    SLEEP=`echo $TOMORROW-$NOW|bc`
-    sleep $SLEEP
+    waitForNext
+  fi
 done
+
