@@ -1,44 +1,65 @@
 # Linux Bing Wallpaper Shell Scripts
 
-It sets Bing.com wallpaper of the Day as your Linux Desktop
+Downloading the latest Picture of the Day from Bing and sets it as the Wallpaper.
 
-supports XFCE4, GNOME (2 and 3) and KDE4, as well fallback to feh.
+## Compatibility
+### Supported DE's
+* XFCE4
+* GNOME 2 & 3
+* KDE4
+* i3wm (feh)
+
+**Pull requests for more DE's are welcome!**
+### Dependencies
+* curl
+* feh (only for i3wm)
 
 ## Usage
+### Installation
+#### Manual Installation
+Download the main script **bing_wallpaper.sh**.
 
-Download these two scripts.
+Download **kde4_set_wallpaper.sh** or **xfce4_set_wallpaper.sh** if needed.
 
-Put them somewhere (~/bin for example)
+Put the file(s) wherever you like.
 
-Change mkt varible in bing_wallpaper.sh to your market (valid values are: en-US, zh-CN, ja-JP, en-AU, en-UK, de-DE, en-NZ, en-CA)
+I recommend:
 
-Give the scripts execution permissions.
+"**~/.config/linux-bing-wallpaper**"
 
-Make them autostart. (Google is your friend)
 
-So next time you boot your computer for the first time a day, it'll run once.
+or the folder with your WM's configuration.
+e.g.:
 
-Next boots it will run too, but do nothing.
 
-## Easy commands
+"**~/.config/i3/bing/bing_wallpaper.sh**"
 
-        cd ~
-        mkdir bin
-        wget https://raw.githubusercontent.com/marguerite/linux-bing-wallpaper/master/bing_wallpaper.sh -o bin/bing_wallpaper.sh
-        # If you use KDE
-        wget https://raw.githubusercontent.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh -o bin/kde4_set_wallpaper.sh
-        chmod +x bin/*.sh
-
-        # Default behavior
-        ./bin/bing_wallpaper.sh
-
-        # First param is Market
-        # Second param is true to exit immediately if you want to use a cron
-        # (otherwise, script will sleep 24 hrs)
-        ./bin/bing_wallpaper.sh en-US true
-
-## Example cron usage (crontab -e for your user)
+Give the scripts execution permissions (*chmod +x ...*).
+#### Easy Installation
 ```
-# m h dom mon dow command
-* * * * * ~/bin/bing_wallpaper.sh en-US true
+mkdir -p ~/.config
+cd .config
+git clone https://github.com/Marco98/linux-bing-wallpaper.git
+```
+### Syntax
+```
+./bing_wallpaper.sh [mkt] [exitAfterRunning]
+```
+**Both arguments are optional**
+
+**[mkt]** = ***en-US*** / zh-CN / ja-JP / en-AU / en-UK / de-DE / en-NZ / en-CA
+
+The mkt parameter determines which Bing market you would like to obtain your images from.
+
+**exitAfterRunning**
+
+**[exitAfterRunning]** = ***true*** / false
+
+If false the script will wait for the next Day to download a new Picture.
+
+If true the script will exit after the first run.
+### Usage Example for i3wm
+**~/.config/i3/config** snippet:
+```
+exec ~/.config/linux-bing-wallpaper/bing_wallpaper.sh de-DE false
 ```

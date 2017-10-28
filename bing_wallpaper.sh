@@ -1,8 +1,11 @@
 #!/bin/bash
-# Author: Marguerite Su <i@marguerite.su>
+# Fork by: Marco98
+# Original Author: Marguerite Su <i@marguerite.su>
 # License: GPL-3.0
 # Description: Download Bing Wallpaper of the Day and set it as your Linux Desktop.
-# https://github.com/marguerite/linux-bing-wallpaper
+# GitHub: https://github.com/Marco98/linux-bing-wallpaper
+#
+# Original: https://github.com/marguerite/linux-bing-wallpaper
 
 function contains() {
     local n=$#
@@ -17,7 +20,7 @@ function contains() {
     return 1
 }
 
-# cron  needs the DBUS_SESSION_BUS_ADDRESS environment variable set
+# cron needs the DBUS_SESSION_BUS_ADDRESS environment variable set
 if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] ; then
   TMP=~/.dbus/session-bus
   export $(grep -h DBUS_SESSION_BUS_ADDRESS= $TMP/$(ls -1t $TMP | head -n 1))
@@ -26,8 +29,8 @@ fi
 if [ "$#" == 0 ] ; then
   # The mkt parameter determines which Bing market you would like to
   # obtain your images from.
-  mkt="zh-CN"
-  exitAfterRunning=false
+  mkt="en-US"
+  exitAfterRunning=true
 
 elif [ "$#" == 2 ] ; then
   # Valid values are:
@@ -52,10 +55,6 @@ else
   exit 1
 fi
 
-# $bing is needed to form the fully qualified URL for
-# the Bing pic of the day
-bing="www.bing.com"
-
 # The idx parameter determines where to start from. 0 is the current day,
 # 1 the previous day, etc.
 idx="0"
@@ -66,7 +65,7 @@ xmlURL="http://www.bing.com/HPImageArchive.aspx?format=xml&idx=$idx&n=1&mkt=$mkt
 
 # $saveDir is used to set the location where Bing pics of the day
 # are stored.  $HOME holds the path of the current user's home directory
-saveDir=$HOME'/.config/bing-wallpaper/'
+saveDir=$HOME'/.config/linux-bing-wallpaper/pictures'
 # $lastFile is the file where the name of the last wallpaper is saved
 lastFile=".last"
 
@@ -110,8 +109,8 @@ detectDE()
            ;; 
       esac
     else
-           # DE not found, maybe used WM
-           DE=WM
+           # DE not found, maybe using i3
+           DE=i3
     fi
 
     if [ x"$DE" = x"" ]; then
@@ -204,7 +203,7 @@ setWallpaper()
     ./xfce4_set_wallpaper.sh $saveDir$picName
   fi
 
-  if [[ $DE = "WM" ]]; then
+  if [[ $DE = "i3" ]]; then
     feh --bg-scale $saveDir$picName
   fi
   echo $picName > $saveDir$lastFile
