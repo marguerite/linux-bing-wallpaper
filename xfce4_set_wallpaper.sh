@@ -17,7 +17,7 @@ done
 wallpaper=$1
 
 # check image
-mime_type=`file --mime-type -b "$wallpaper"`
+mime_type=`file -L --mime-type -b "$wallpaper"`
 if [[ ! "$mime_type" == image/* ]]; then
 	echo "Invalid image"
 	exit 1
