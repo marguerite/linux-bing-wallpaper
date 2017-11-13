@@ -55,6 +55,11 @@ else
   exit 1
 fi
 
+
+# $bing is needed to form the fully qualified URL for
+# the Bing pic of the day
+bing="www.bing.com"
+
 # The idx parameter determines where to start from. 0 is the current day,
 # 1 the previous day, etc.
 idx="0"
