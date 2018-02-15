@@ -6,7 +6,6 @@
 package main
 
 import (
-  "fmt"
   "io"
   "io/ioutil"
   "net/http"
@@ -334,8 +333,6 @@ func main() {
   markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
   de := detect_de()
   var mkt string
-  var err error
-  var exitAfterRunning bool
   idx := "0"
   // dir is used to set the location where Bing pictures of the day
   // are stored. HOME holds the path of the current user's home directory
@@ -343,21 +340,17 @@ func main() {
 
   if size == 1 {
     mkt = "zh-CN"
-    exitAfterRunning = false
   }
 
-  if size == 3 {
+  if size == 2 {
     if !include(markets, opts[1]) {
       panic("mkt must be of the following: " + join(markets))
     }
     mkt = opts[1]
-
-    exitAfterRunning, err = strconv.ParseBool(opts[2])
-    check(err)
   }
 
-  if size > 3 || size == 2 {
-    panic("Usage: bing_wallpaper mkt[" + join(markets) + "] exitAfterRunning[true,false]")
+  if size > 2 {
+    panic("Usage: bing_wallpaper mkt[" + join(markets) + "]")
   }
 
   xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
@@ -365,6 +358,4 @@ func main() {
 
   check_dbus()
   set_wallpaper(de, pic)
-
-  fmt.Println(exitAfterRunning)
 }
