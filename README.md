@@ -14,7 +14,7 @@ Install [golang](https://golang.org).
 
 Copy the generated `bing-wallpaper` somewhere (~/bin for example)
 
-Make it autostart. (See example systemd service)
+Run it using cron or systemd user service.
 
 So next time you boot your computer for the first time a day, it'll run once.
 
@@ -22,11 +22,20 @@ Next boots it will run too, but do nothing.
 
 ## Easy commands
 
-        # The only param is Market
-        ~/bin/bing-wallpaper en-US
+        # The first param is Market
+        # The second param should be false to not loop infinitely (for cron)
+        # (otherwise, script will keep running and checking for the next update)
+        ~/bin/bing-wallpaper en-US true
 
 ## Example cron usage (crontab -e for your user)
 ```
 # m h dom mon dow command
-* * * * * ~/bin/bing-wallpaper en-US
+* * * * * ~/bin/bing-wallpaper en-US false
 ```
+
+## Example systemd user service usage
+
+    mkdir -p ~/.config/systemd/user
+    cp -r bing-wallpaper.service ~/.config/systemd/user
+    systemctl --user enable bing-wallpaper
+    systemctl --user start bing-wallpaper

@@ -8,13 +8,17 @@ package main
 import (
   "io"
   "io/ioutil"
+  "log"
   "net/http"
   "os"
   "os/exec"
+  "os/signal"
   "path/filepath"
   "regexp"
   "strconv"
   "strings"
+  "syscall"
+  "time"
 )
 
 func check(e error) {
@@ -138,6 +142,7 @@ func download_pictures(xml string, dir string) string {
   picExt := ".jpg"
   // create picture diretory if does not already exist
   if _, err := os.Stat(dir); os.IsNotExist(err) {
+    log.Println("creating " + dir)
     err = os.MkdirAll(dir, 0755)
     check(err)
   }
@@ -147,6 +152,8 @@ func download_pictures(xml string, dir string) string {
     arr := strings.Split(url, "/")
     pic := arr[len(arr)-1]
     file = dir + "/" + pic
+
+    log.Println("upstream url:" + url)
 
     if _, err := os.Stat(file); os.IsNotExist(err) {
       out, err := os.Create(file)
@@ -159,6 +166,8 @@ func download_pictures(xml string, dir string) string {
 
       _, err = io.Copy(out, resp.Body)
       check(err)
+
+      log.Println("downloaded to:" + file)
     }
 
     if out, err := exec.Command("/usr/bin/file", "-L", "--mime-type", "-b", file).Output(); err == nil {
@@ -184,6 +193,7 @@ func download_pictures(xml string, dir string) string {
 // cron needs the DBUS_SESSION_BUS_ADDRESS env set
 func check_dbus() {
   if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
+    log.Println("setting DBUS_SESSION_BUS_ADDRESS")
     path, err := filepath.Glob("/home/" + os.Getenv("LOGNAME") + "/.dbus/session-bus/*")
     check(err)
     file, err := ioutil.ReadFile(path[0])
@@ -198,6 +208,8 @@ func check_dbus() {
 func set_wallpaper(de, pic string) {
   // valid options are: none, wallpaper, centered, scaled, stretched, zoom, spanned
   picOpts := "zoom"
+
+  log.Println("setting wallpaper for " + de)
 
   if de == "x-cinnamon" {
     os.Setenv("DISPLAY", ":0")
@@ -346,6 +358,8 @@ func main() {
   markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
   de := detect_de()
   var mkt string
+  var loop bool
+  var err error
   idx := "0"
   // dir is used to set the location where Bing pictures of the day
   // are stored. HOME holds the path of the current user's home directory
@@ -353,22 +367,50 @@ func main() {
 
   if size == 1 {
     mkt = "zh-CN"
+    loop = true
   }
 
-  if size == 2 {
+  if size == 3 {
     if !include(markets, opts[1]) {
       panic("mkt must be of the following: " + join(markets))
     }
     mkt = opts[1]
+    loop, err = strconv.ParseBool(opts[2])
+    check(err)
   }
 
-  if size > 2 {
-    panic("Usage: bing_wallpaper mkt[" + join(markets) + "]")
+  if size > 3 || size == 2 {
+    panic("Usage: bing_wallpaper mkt[" + join(markets) + "] loop[true,false]")
   }
+
+  log.Println("started bing-wallpaper")
+  check_dbus()
 
   xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
-  pic := download_pictures(xml, dir)
+  t := time.Now().Format("2006-01-02")
+  log.Println("current time:" + t)
 
-  check_dbus()
-  set_wallpaper(de, pic)
+  sigs := make(chan os.Signal, 1)
+  signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+  go func() {
+    sig := <-sigs
+    log.Println("received signal:")
+    log.Println(sig)
+    log.Println("quiting...")
+    os.Exit(0)
+  }()
+
+  for {
+    if time.Now().Format("2006-01-02") != t {
+      pic := download_pictures(xml, dir)
+      set_wallpaper(de, pic)
+    } else {
+      if !loop {
+        break
+      }
+      log.Println("sleeping one hour...")
+      time.Sleep(1 * time.Hour) 
+    }
+  }
 }
