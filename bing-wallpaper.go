@@ -46,8 +46,7 @@ func toString(b []byte) string {
 }
 
 func detect_de() string {
-  var de string
-  de = strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
+  de := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
 
   // classic fallbacks
   if de == "" {
@@ -97,6 +96,19 @@ func detect_de() string {
   if de == "gnome" {
     if _, err := exec.Command("which", "gnome-default-applications-properties").Output(); err == nil {
       return "gnome3"
+    }
+  }
+
+  // check plasmashell's version
+  if de == "kde" {
+    if _, err := os.Stat("/usr/bin/plasmashell"); !os.IsNotExist(err) {
+      out, err := exec.Command("/usr/bin/plasmashell", "-v").Output()
+      check(err)
+      re := regexp.MustCompile(`\s(\d+)\..*?`)
+      v := re.FindStringSubmatch(string(out))[1]
+      if v == "5" {
+        return "kde5"
+      }
     }
   }
 
@@ -228,6 +240,10 @@ func set_wallpaper(de, pic string) {
   }
 
   if de == "kde" {
+    set_kde4_wallpaper(pic)
+  }
+
+  if de == "kde5" {
     set_plasma_wallpaper(pic)
   }
 
@@ -237,7 +253,7 @@ func set_wallpaper(de, pic string) {
   }
 }
 
-func set_plasma_wallpaper(pic string) string {
+func set_kde4_wallpaper(pic string) {
   if _, err := os.Stat("/usr/bin/xdotool"); os.IsNotExist(err) {
     panic("please install xdotool")
   }
@@ -245,7 +261,67 @@ func set_plasma_wallpaper(pic string) string {
   if _, err := os.Stat("/usr/bin/gettext"); os.IsNotExist(err) {
     panic("please install gettext-runtime")
   }
-  return ""
+
+  re := regexp.MustCompile(`^(.*?)\..*$`)
+  locale := re.FindStringSubmatch(os.Getenv("LANG"))[1]
+
+  console1 := "Desktop Shell Scripting Console"
+  console2 := "Plasma Desktop Shell"
+
+  var jsconsole string
+  if locale != "" {
+    os.Setenv("LANGUAGE", locale)
+    out, err := exec.Command("/usr/bin/gettext", "-d", "plasma-desktop", "-s", console1).Output()
+    check(err)
+    out1, err1 := exec.Command("/usr/bin/gettext", "-d", "plasma-desktop", "-s", console2).Output()
+    check(err1)
+    jsconsole = string(out) + " - " + string(out1)
+  } else {
+    jsconsole = console1 + " - " + console2
+  }
+
+  file, err := os.Create("/tmp/jsconsole")
+  check(err)
+
+  str := []string{"var wallpaper = " + pic + ";\n",
+                  "var activity = activities()[0];\n",
+                  "activity.currentConfigGroup = new Array(\"wallpaper\", \"image\");\n",
+                  "activity.writeConfig(\"wallpaper\", wallpaper);\n",
+                  "activity.writeConfig(\"userswallpaper\", wallpaper);\n",
+                  "activity.reloadConfig();\n"}
+
+  for _, a := range str {
+    _, err = file.WriteString(a)
+    check(err)
+  }
+
+  err = file.Sync()
+  check(err)
+
+  file.Close()
+
+  _, err1 := exec.Command("/usr/bin/qdbus", "org.kde.plasma-desktop", "/App", "local.PlasmaApp.loadScriptInInteractiveConsole", "/tmp/jsconsole").Output()
+  check(err1)
+
+  _, err2 := exec.Command("/usr/bin/xdotool", "search", "--name", jsconsole, "windowactivate", "key", "ctrl+e", "key", "ctrl+w").Output()
+  check(err2)
+
+  err = os.Remove("/tmp/jsconsole")
+  check(err)
+}
+
+func set_plasma_wallpaper(pic string) {
+  str := `string:
+var all = desktops();
+for (i=0;i<all.length;i++) {
+  d = all[i];
+  d.wallpaperPlugin = "org.kde.image";
+  d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
+  d.writeConfig("Image", "file://` + pic + `");
+}`
+
+  _, err := exec.Command("/usr/bin/dbus-send", "--session", "--dest=org.kde.plasmashell", "--type=method_call", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", str).Output()
+  check(err)
 }
 
 func set_xfce_wallpaper(pic string) string {
