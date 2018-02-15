@@ -161,7 +161,7 @@ func download_pictures(xml string, dir string) string {
       check(err)
     }
 
-    if out, err := exec.Command("/usr/bin/file", "--mime-type", "-b", file).Output(); err == nil {
+    if out, err := exec.Command("/usr/bin/file", "-L", "--mime-type", "-b", file).Output(); err == nil {
       re := regexp.MustCompile("^image/")
       if re.MatchString(string(out)) {
         downloadResult = append(downloadResult, "0")
@@ -323,8 +323,21 @@ for (i=0;i<all.length;i++) {
   check(err)
 }
 
-func set_xfce_wallpaper(pic string) string {
-  return ""
+func set_xfce_wallpaper(pic string) {
+  if _, err := os.Stat("/usr/bin/xfconf-query"); os.IsNotExist(err) {
+    panic("please install xfconf-query")
+  }
+
+  out, err := exec.Command("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", "/backdrop", "-l").Output()
+  check(err)
+
+  re := regexp.MustCompile(`(?m)^.*screen.*/monitor.*(image-path|last-image)$`)
+  paths := re.FindAllString(string(out), -1)
+
+  for _, p := range paths {
+    _, err := exec.Command("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", p, "-s", pic).Output()
+    check(err)
+  }
 }
 
 func main() {
