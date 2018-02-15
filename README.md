@@ -1,20 +1,20 @@
-# Linux Bing Wallpaper Shell Scripts
+# Linux Bing Wallpaper
 
 It sets Bing.com wallpaper of the Day as your Linux Desktop
 
-supports XFCE4, GNOME (2 and 3) and KDE4, as well fallback to feh.
+supports GNOME (2 and 3), KDE 4 / Plasma 5, XFCE4, MATE, Cinnamon, LXDE(LXQT), as well fallback to feh.
 
 ## Usage
 
-Download these two scripts.
+Install [golang](https://golang.org).
 
-Put them somewhere (~/bin for example)
+    git clone https://github.com/marguerite/linux-bing-wallpaper
+    cd linux-bing-wallpaper
+    go build bing-wallpaper.go
 
-Change mkt varible in bing_wallpaper.sh to your market (valid values are: en-US, zh-CN, ja-JP, en-AU, en-UK, de-DE, en-NZ, en-CA)
+Copy the generated `bing-wallpaper` somewhere (~/bin for example)
 
-Give the scripts execution permissions.
-
-Make them autostart. (Google is your friend)
+Run it using cron or systemd user service.
 
 So next time you boot your computer for the first time a day, it'll run once.
 
@@ -22,23 +22,20 @@ Next boots it will run too, but do nothing.
 
 ## Easy commands
 
-        cd ~
-        mkdir bin
-        wget https://raw.githubusercontent.com/marguerite/linux-bing-wallpaper/master/bing_wallpaper.sh -o bin/bing_wallpaper.sh
-        # If you use KDE
-        wget https://raw.githubusercontent.com/marguerite/linux-bing-wallpaper/master/kde4_set_wallpaper.sh -o bin/kde4_set_wallpaper.sh
-        chmod +x bin/*.sh
-
-        # Default behavior
-        ./bin/bing_wallpaper.sh
-
-        # First param is Market
-        # Second param is true to exit immediately if you want to use a cron
-        # (otherwise, script will sleep 24 hrs)
-        ./bin/bing_wallpaper.sh en-US true
+        # The first param is Market
+        # The second param should be false to not loop infinitely (for cron)
+        # (otherwise, script will keep running and checking for the next update)
+        ~/bin/bing-wallpaper en-US true
 
 ## Example cron usage (crontab -e for your user)
 ```
 # m h dom mon dow command
-* * * * * ~/bin/bing_wallpaper.sh en-US true
+* * * * * ~/bin/bing-wallpaper en-US false
 ```
+
+## Example systemd user service usage
+
+    mkdir -p ~/.config/systemd/user
+    cp -r bing-wallpaper.service ~/.config/systemd/user
+    systemctl --user enable bing-wallpaper
+    systemctl --user start bing-wallpaper
