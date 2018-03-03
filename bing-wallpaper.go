@@ -401,9 +401,13 @@ func main() {
     os.Exit(0)
   }()
 
+  // run everytime system starts
+  pic := download_pictures(xml, dir)
+  set_wallpaper(de, pic)
+
   for {
     if time.Now().Format("2006-01-02") != t {
-      pic := download_pictures(xml, dir)
+      pic = download_pictures(xml, dir)
       set_wallpaper(de, pic)
     } else {
       if !loop {
