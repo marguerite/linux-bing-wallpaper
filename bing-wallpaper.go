@@ -164,6 +164,10 @@ func downloadWallpaper(xml string, dir string) string {
 			errChk(err)
 			defer resp.Body.Close()
 
+			if resp.StatusCode == 404 {
+				panic(url + "could not found")
+			}
+
 			_, err = io.Copy(out, resp.Body)
 			errChk(err)
 
@@ -387,8 +391,20 @@ func main() {
 	dbusChk()
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
-	t := time.Now().Format("2006-01-02")
-	log.Println("current time:" + t)
+	pic := downloadWallpaper(xml, dir)
+        setWallpaper(de, pic)
+	log.Println(pic)
+        ticker := time.NewTicker(time.Hour*1)
+
+	if loop {
+		for range ticker.C {
+			if time.Now().Format("15") == "00" {
+				pic := downloadWallpaper(xml, dir)
+				setWallpaper(de, pic)
+				log.Println(pic)
+			}
+		}
+	}
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
@@ -398,19 +414,7 @@ func main() {
 		log.Println("received signal:")
 		log.Println(sig)
 		log.Println("quiting...")
+		ticker.Stop()
 		os.Exit(0)
 	}()
-
-	for {
-		if time.Now().Format("2006-01-02") != t {
-			pic := downloadWallpaper(xml, dir)
-			setWallpaper(de, pic)
-		} else {
-			if !loop {
-				break
-			}
-			log.Println("sleeping one hour...")
-			time.Sleep(1 * time.Hour)
-		}
-	}
 }
