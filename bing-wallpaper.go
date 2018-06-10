@@ -255,6 +255,11 @@ func setWallpaper(de, pic string) {
 		errChk(err)
 	}
 
+	if de == "lxde" {
+		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
+		errChk(err)
+	}
+
 	if de == "lxqt" {
 		_, err := exec.Command("/usr/bin/pcmanfm-qt", "-w", pic).Output()
 		errChk(err)
