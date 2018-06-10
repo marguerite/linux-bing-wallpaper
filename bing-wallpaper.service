@@ -5,7 +5,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/bing-wallpaper zh-CN true
+ExecStart=/usr/bin/bing-wallpaper -market=zh-CN -loop=true
 Restart=on-failure
 
 [Install]

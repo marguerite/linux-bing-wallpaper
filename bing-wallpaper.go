@@ -6,6 +6,7 @@
 package main
 
 import (
+	"flag"
 	"io"
 	"io/ioutil"
 	"log"
@@ -133,13 +134,20 @@ func getURLPrefix(url string) string {
 	return "http://bing.com" + re.FindStringSubmatch(res)[1]
 }
 
+func imageChk(image string, length int) bool {
+	re := regexp.MustCompile(`^image/`)
+	out, err := exec.Command("/usr/bin/file", "-L", "--mime-type", "-b", image).Output()
+	errChk(err)
+	info, err := os.Stat(image)
+	errChk(err)
+	return re.MatchString(string(out)) && info.Size() == int64(length)
+}
+
 // download the highest resolution
 func downloadWallpaper(xml string, dir string) string {
+	file := ""
 	prefix := getURLPrefix(xml)
 	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x720", "_1024x768"}
-	var file string
-	var downloadResult []string
-	picExt := ".jpg"
 	// create picture diretory if does not already exist
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		log.Println("creating " + dir)
@@ -148,49 +156,51 @@ func downloadWallpaper(xml string, dir string) string {
 	}
 
 	for _, res := range resolutions {
-		url := prefix + res + picExt
-		arr := strings.Split(url, "/")
-		pic := arr[len(arr)-1]
-		file = dir + "/" + pic
+		uri := prefix + res + ".jpg"
 
-		log.Println("upstream url:" + url)
+		log.Println("upstream url:" + uri)
 
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			out, err := os.Create(file)
-			errChk(err)
-			defer out.Close()
+		resp, err := http.Get(uri)
+		errChk(err)
+		defer resp.Body.Close()
 
-			resp, err := http.Get(url)
-			errChk(err)
-			defer resp.Body.Close()
+		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 
-			if resp.StatusCode == 404 {
-				panic(url + "could not found")
-			}
-
-			_, err = io.Copy(out, resp.Body)
-			errChk(err)
-
-			log.Println("downloaded to:" + file)
-		}
-
-		if out, err := exec.Command("/usr/bin/file", "-L", "--mime-type", "-b", file).Output(); err == nil {
-			re := regexp.MustCompile("^image/")
-			if re.MatchString(string(out)) {
-				downloadResult = append(downloadResult, "0")
-				break
-			} else {
-				err = os.Remove(file)
+		if resp.StatusCode == 404 {
+			continue
+		} else {
+			file = filepath.Join(dir, filepath.Base(uri))
+			if _, err := os.Stat(file); os.IsNotExist(err) {
+				out, err := os.Create(file)
 				errChk(err)
-				downloadResult = append(downloadResult, "1")
+
+				_, err = io.Copy(out, resp.Body)
+				errChk(err)
+
+				out.Sync()
+				out.Close()
+
+				if imageChk(file, contentLength) {
+					log.Println("downloaded to:" + file)
+					break
+				} else {
+					err = os.Remove(file)
+					errChk(err)
+					file = ""
+					continue
+				}
+			} else {
+				if imageChk(file, contentLength) {
+					break
+				} else {
+					err = os.Remove(file)
+					errChk(err)
+					file = ""
+					continue
+				}
 			}
 		}
 	}
-
-	if !sliceContains(downloadResult, "0") {
-		panic("Couldn't download any picture")
-	}
-
 	return file
 }
 
@@ -335,8 +345,12 @@ for (i=0;i<all.length;i++) {
   d.writeConfig("Image", "file://` + pic + `");
 }`
 
-	_, err := exec.Command("/usr/bin/dbus-send", "--session", "--dest=org.kde.plasmashell", "--type=method_call", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", str).Output()
+	out, err := exec.Command("/usr/bin/dbus-send", "--session", "--dest=org.kde.plasmashell", "--type=method_call", "--print-reply", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", str).Output()
 	errChk(err)
+
+	if strings.Contains(string(out), "Widgets are locked") {
+		log.Println("Can't set wallpaper for Plasma because widgets are locked!")
+	}
 }
 
 func setXfceWallpaper(pic string) {
@@ -357,34 +371,21 @@ func setXfceWallpaper(pic string) {
 }
 
 func main() {
-	opts := os.Args
-	size := len(opts)
 	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
 	de := detectDesktopEnv()
-	var mkt string
-	var loop bool
-	var err error
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
 	// are stored. HOME holds the path of the current user's home directory
 	dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
 
-	if size == 1 {
-		mkt = "zh-CN"
-		loop = true
-	}
+	var mkt string
+	var loop bool
+	flag.StringVar(&mkt, "market", "zh-CN", "the region to use. available: "+sliceJoin(markets))
+	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
+	flag.Parse()
 
-	if size == 3 {
-		if !sliceContains(markets, opts[1]) {
-			panic("mkt must be of the following: " + sliceJoin(markets))
-		}
-		mkt = opts[1]
-		loop, err = strconv.ParseBool(opts[2])
-		errChk(err)
-	}
-
-	if size > 3 || size == 2 {
-		panic("Usage: bing_wallpaper mkt[" + sliceJoin(markets) + "] loop[true,false]")
+	if !sliceContains(markets, mkt) {
+		panic("market must be one of the following: " + sliceJoin(markets))
 	}
 
 	log.Println("started bing-wallpaper")
@@ -392,16 +393,16 @@ func main() {
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
 	pic := downloadWallpaper(xml, dir)
-        setWallpaper(de, pic)
+	setWallpaper(de, pic)
 	log.Println(pic)
-        ticker := time.NewTicker(time.Hour*1)
+	ticker := time.NewTicker(time.Hour * 1)
 
 	if loop {
 		for range ticker.C {
-			if time.Now().Format("15") == "00" {
-				pic := downloadWallpaper(xml, dir)
-				setWallpaper(de, pic)
-				log.Println(pic)
+			newPic := downloadWallpaper(xml, dir)
+			if newPic != pic {
+				setWallpaper(de, newPic)
+				log.Println(newPic)
 			}
 		}
 	}
