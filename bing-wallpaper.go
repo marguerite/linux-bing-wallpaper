@@ -9,7 +9,7 @@ import (
 	"flag"
 	"io"
 	"io/ioutil"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -150,7 +150,7 @@ func downloadWallpaper(xml string, dir string) string {
 	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x720", "_1024x768"}
 	// create picture diretory if does not already exist
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		log.Println("creating " + dir)
+		fmt.Println("creating " + dir)
 		err = os.MkdirAll(dir, 0755)
 		errChk(err)
 	}
@@ -158,7 +158,7 @@ func downloadWallpaper(xml string, dir string) string {
 	for _, res := range resolutions {
 		uri := prefix + res + ".jpg"
 
-		log.Println("upstream url:" + uri)
+		fmt.Println("upstream uri:" + uri)
 
 		resp, err := http.Get(uri)
 		errChk(err)
@@ -181,7 +181,7 @@ func downloadWallpaper(xml string, dir string) string {
 				out.Close()
 
 				if imageChk(file, contentLength) {
-					log.Println("downloaded to:" + file)
+					fmt.Println("downloaded to:" + file)
 					break
 				} else {
 					err = os.Remove(file)
@@ -207,7 +207,7 @@ func downloadWallpaper(xml string, dir string) string {
 // cron needs the DBUS_SESSION_BUS_ADDRESS env set
 func dbusChk() {
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
-		log.Println("setting DBUS_SESSION_BUS_ADDRESS")
+		fmt.Println("setting DBUS_SESSION_BUS_ADDRESS")
 		path, err := filepath.Glob("/home/" + os.Getenv("LOGNAME") + "/.dbus/session-bus/*")
 		errChk(err)
 		file, err := ioutil.ReadFile(path[0])
@@ -223,7 +223,7 @@ func setWallpaper(de, pic string) {
 	// valid options are: none, wallpaper, centered, scaled, stretched, zoom, spanned
 	picOpts := "zoom"
 
-	log.Println("setting wallpaper for " + de)
+	fmt.Println("setting wallpaper for " + de)
 
 	if de == "x-cinnamon" {
 		os.Setenv("DISPLAY", ":0")
@@ -354,7 +354,7 @@ for (i=0;i<all.length;i++) {
 	errChk(err)
 
 	if strings.Contains(string(out), "Widgets are locked") {
-		log.Println("Can't set wallpaper for Plasma because widgets are locked!")
+		fmt.Println("Can't set wallpaper for Plasma because widgets are locked!")
 	}
 }
 
@@ -393,21 +393,22 @@ func main() {
 		panic("market must be one of the following: " + sliceJoin(markets))
 	}
 
-	log.Println("started bing-wallpaper")
+	fmt.Println("started bing-wallpaper")
 	dbusChk()
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
 	pic := downloadWallpaper(xml, dir)
 	setWallpaper(de, pic)
-	log.Println(pic)
+	fmt.Println("the picture location:"+pic)
 	ticker := time.NewTicker(time.Hour * 1)
 
 	if loop {
 		for range ticker.C {
+      fmt.Println("Waiting for an hour")
 			newPic := downloadWallpaper(xml, dir)
 			if newPic != pic {
 				setWallpaper(de, newPic)
-				log.Println(newPic)
+				fmt.Println("the new picture:"+newPic)
 			}
 		}
 	}
@@ -417,9 +418,9 @@ func main() {
 
 	go func() {
 		sig := <-sigs
-		log.Println("received signal:")
-		log.Println(sig)
-		log.Println("quiting...")
+		fmt.Println("received signal:")
+		fmt.Println(sig)
+		fmt.Println("quiting...")
 		ticker.Stop()
 		os.Exit(0)
 	}()
