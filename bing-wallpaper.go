@@ -7,9 +7,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"io/ioutil"
-	"fmt"
 	"net/http"
 	"os"
 	"os/exec"
@@ -219,12 +219,7 @@ func dbusChk() {
 	}
 }
 
-func setWallpaper(de, pic string) {
-	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
-	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
-	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
-	picOpts := "zoom"
-
+func setWallpaper(de, pic, picOpts string) {
 	fmt.Println("setting wallpaper for " + de)
 
 	if de == "x-cinnamon" {
@@ -390,9 +385,14 @@ func main() {
 	dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
 
 	var mkt string
+	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
+	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
+	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
+	var picOpts string
 	var loop bool
 	flag.StringVar(&mkt, "market", "zh-CN", "the region to use. available: "+sliceJoin(markets))
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
+	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
 	flag.Parse()
 
 	if !sliceContains(markets, mkt) {
@@ -404,17 +404,17 @@ func main() {
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
 	pic := downloadWallpaper(xml, dir)
-	setWallpaper(de, pic)
-	fmt.Println("the picture location:"+pic)
+	setWallpaper(de, pic, picOpts)
+	fmt.Println("the picture location:" + pic)
 	ticker := time.NewTicker(time.Hour * 1)
 
 	if loop {
 		for range ticker.C {
-      fmt.Println("Waiting for an hour")
+			fmt.Println("Waiting for an hour")
 			newPic := downloadWallpaper(xml, dir)
 			if newPic != pic {
-				setWallpaper(de, newPic)
-				fmt.Println("the new picture:"+newPic)
+				setWallpaper(de, newPic, picOpts)
+				fmt.Println("the new picture:" + newPic)
 			}
 		}
 	}

@@ -9,4 +9,4 @@ ExecStart=/usr/bin/bing-wallpaper -market=zh-CN -loop=true
 Restart=on-failure
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
