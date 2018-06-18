@@ -20,10 +20,7 @@ So next time you boot your computer for the first time in a day, it'll update yo
 
 ## Easy commands
 
-        # The first param is Market
-        # The second param should be false to not loop infinitely (for cron)
-        # (otherwise, script will keep running and checking for the next update)
-        /usr/bin/bing-wallpaper -market=en-US -loop=true
+        /usr/bin/bing-wallpaper -market=en-US
 
 ## Example cron usage (crontab -e for your user)
 ```
@@ -43,12 +40,18 @@ So next time you boot your computer for the first time in a day, it'll update yo
 A: On KDE Plasma 5, you have to unlock your desktop to receive wallpaper updates, there's no other way.
 
 B: There is a racing problem when running bing-wallpaper with systemd. systemd can't guarantee to start
-us after the desktop. So we may not detect the correct desktop thus can't set it to "WM" blindly.
+it after the desktop. So we may not detect the correct desktop thus can't set it to "WM" blindly.
 
 The solution is:
 
-If the desktop information was resolved to null at system start, bing-wallpaper will retry next hour.
+B1: If the desktop information was resolved to null at system start, bing-wallpaper will retry next hour.
 If still null, then set the desktop to "WM". So for i3/openbox, it will not set your wallpaper immediately.
+
+B2: use my other systemd user services, like checkprocess and network-real-online, to start bing-wallpaper after kde and after network is up and running.
 
 There's no solution for cron for now. But you will hardly meet this case unless you boot your machine
 exactly at the time the cron service runs.
+
+## TODO
+
+allow to specify desktop environment.

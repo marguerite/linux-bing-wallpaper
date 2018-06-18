@@ -303,11 +303,11 @@ func setWallpaper(de, pic, picOpts string) {
 		setXfceWallpaper(pic)
 	}
 
-	if de == "kde" {
+	if de == "kde4" {
 		setKde4Wallpaper(pic)
 	}
 
-	if de == "kde5" {
+	if de == "plasma5" {
 		setPlasmaWallpaper(pic)
 	}
 
