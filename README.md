@@ -40,4 +40,15 @@ So next time you boot your computer for the first time in a day, it'll update yo
 
 ## Known problems
 
-On KDE Plasma 5, you have to unlock your desktop to receive wallpaper updates, there's no other way.
+A: On KDE Plasma 5, you have to unlock your desktop to receive wallpaper updates, there's no other way.
+
+B: There is a racing problem when running bing-wallpaper with systemd. systemd can't guarantee to start
+us after the desktop. So we may not detect the correct desktop thus can't set it to "WM" blindly.
+
+The solution is:
+
+If the desktop information was resolved to null at system start, bing-wallpaper will retry next hour.
+If still null, then set the desktop to "WM". So for i3/openbox, it will not set your wallpaper immediately.
+
+There's no solution for cron for now. But you will hardly meet this case unless you boot your machine
+exactly at the time the cron service runs.

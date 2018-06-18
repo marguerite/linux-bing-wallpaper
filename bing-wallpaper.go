@@ -6,6 +6,7 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -49,78 +50,110 @@ func toString(b []byte) string {
 	return string(b[:])
 }
 
-func detectDesktopEnv() string {
-	de := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP"))
+func sessionEnv() string {
+	// use $XDG_CURRENT_DESKTOP, then $DESKTOP_SESSION
+	if e := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP")); len(e) != 0 {
+		return e
+	}
+	if e := strings.ToLower(os.Getenv("DESKTOP_SESSION")); len(e) != 0 {
+		return e
+	}
+	return ""
+}
 
-	// classic fallbacks
-	if de == "" {
-		kde, err := strconv.ParseBool(os.Getenv("KDE_FULL_SESSION"))
+func isPlasma5() (bool, error) {
+	re := regexp.MustCompile(`\s(\d+)\..*?`)
+	// check plasmashell's version
+	if _, err := os.Stat("/usr/bin/plasmashell"); !os.IsNotExist(err) {
+		version, err := exec.Command("/usr/bin/plasmashell", "-v").Output()
+		if err != nil {
+			return false, err
+		}
+		if re.MatchString(string(version)) && re.FindStringSubmatch(string(version))[1] == "5" {
+			return true, nil
+		}
+		return false, errors.New("can't find valid version from plasmashell -v")
+	}
+	return false, nil
+}
+
+func kdeSession(session string) string {
+	env := os.Getenv("KDE_FULL_SESSION")
+	// use sessionEnv, then $KDE_FULL_SESSION
+	if session == "kde" || len(env) != 0 {
+		plasma5, err := isPlasma5()
 		errChk(err)
-		if kde {
-			return "kde"
+		if plasma5 {
+			return "plasma5"
 		}
-		if os.Getenv("GNOME_DESKTOP_SESSION_ID") != "" {
-			de = "gnome"
-		}
-		if _, err := exec.Command("/usr/bin/dbus-send", "--print-reply", "--dest=org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.GetNameOwner", "string:org.gnome.SessionManager").Output(); err == nil {
-			de = "gnome"
-		}
-		if os.Getenv("MATE_DESKTOP_SESSION_ID") != "" {
-			return "mate"
-		}
-		if out, err := exec.Command("/usr/bin/xprop", "-root", "_DT_SAVE_MODE").Output(); err == nil {
-			re := regexp.MustCompile(" - \"xfce4\"$")
-			if re.MatchString(string(out)) {
-				return "xfce"
-			}
-		}
-		if out, err := exec.Command("/usr/bin/xprop", "-root").Output(); err == nil {
-			re := regexp.MustCompile("^xfce_desktop_window")
-			if re.MatchString(string(out)) {
-				return "xfce"
-			}
-		}
+		return "kde4"
 	}
+	return ""
+}
 
-	// fallback to checking $DESKTOP_SESSION
-	if de == "" {
-		de = strings.ToLower(os.Getenv("DESKTOP_SESSION"))
-	}
-
-	if de != "" {
-		if de == "lubuntu" {
-			return "lxde"
-		}
-		if de == "xfce4" || de == "xfce session" {
-			return "xfce"
-		}
-	}
-
+func isGnome3() bool {
 	// gnome-default-applications-properties is only available in GNOME 2.x but not in GNOME 3.x
-	if de == "gnome" {
-		if _, err := exec.Command("which", "gnome-default-applications-properties").Output(); err == nil {
+	if _, err := os.Stat("/usr/bin/gnome-default-applications-properties"); !os.IsNotExist(err) {
+		return true
+	}
+	return false
+}
+
+func gnomeSession(session string) string {
+	_, err := exec.Command("/usr/bin/dbus-send", "--print-reply", "--dest=org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.GetNameOwner", "string:org.gnome.SessionManager").Output()
+	if session == "gnome" || len(os.Getenv("GNOME_DESKTOP_SESSION_ID")) != 0 || err == nil {
+		if isGnome3() {
 			return "gnome3"
 		}
+		return "gnome"
 	}
+	return ""
+}
 
-	// check plasmashell's version
-	if de == "kde" {
-		if _, err := os.Stat("/usr/bin/plasmashell"); !os.IsNotExist(err) {
-			out, err := exec.Command("/usr/bin/plasmashell", "-v").Output()
-			errChk(err)
-			re := regexp.MustCompile(`\s(\d+)\..*?`)
-			v := re.FindStringSubmatch(string(out))[1]
-			if v == "5" {
-				return "kde5"
-			}
-		}
+func mateSession(session string) string {
+	if session == "mate" || len(os.Getenv("MATE_DESKTOP_SESSION_ID")) != 0 {
+		return "mate"
 	}
+	return ""
+}
 
-	if de == "" {
-		return "WM"
+func xfceSession(session string) string {
+	saveMode, _ := exec.Command("/usr/bin/xprop", "-root", "_DT_SAVE_MODE").Output()
+	window, _ := exec.Command("/usr/bin/xprop", "-root").Output()
+	saveModeRe := regexp.MustCompile(" - \"xfce4\"$")
+	windowRe := regexp.MustCompile("^xfce_desktop_window")
+
+	if session == "xfce" || session == "xfce4" || session == "xfce session" || saveModeRe.MatchString(string(saveMode)) || windowRe.MatchString(string(window)) {
+		return "xfce"
 	}
+	return ""
+}
 
-	return de
+func lxdeSession(session string) string {
+	if session == "lxde" || session == "lxqt" || session == "lubuntu" {
+		return "lxde"
+	}
+	return ""
+}
+
+func desktopEnv() string {
+	env := sessionEnv()
+	if kde := kdeSession(env); len(kde) != 0 {
+		return kde
+	}
+	if gnome := gnomeSession(env); len(gnome) != 0 {
+		return gnome
+	}
+	if mate := mateSession(env); len(mate) != 0 {
+		return mate
+	}
+	if xfce := xfceSession(env); len(xfce) != 0 {
+		return xfce
+	}
+	if lxde := lxdeSession(env); len(lxde) != 0 {
+		return lxde
+	}
+	return env
 }
 
 func getURLPrefix(url string) string {
@@ -256,14 +289,14 @@ func setWallpaper(de, pic, picOpts string) {
 		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm", "--wallpaper-mode", picOpts).Output()
-		check(err1)
+		errChk(err1)
 	}
 
 	if de == "lxqt" {
 		_, err := exec.Command("/usr/bin/pcmanfm-qt", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm-qt", "--wallpaper-mode", picOpts).Output()
-		check(err1)
+		errChk(err1)
 	}
 
 	if de == "xfce" {
@@ -377,19 +410,19 @@ func setXfceWallpaper(pic string) {
 }
 
 func main() {
+	var mkt string
+	var pic string
+	var picOpts string
+	var loop bool
+	de := desktopEnv()
 	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
-	de := detectDesktopEnv()
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
 	// are stored. HOME holds the path of the current user's home directory
 	dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
-
-	var mkt string
 	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
 	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
 	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
-	var picOpts string
-	var loop bool
 	flag.StringVar(&mkt, "market", "zh-CN", "the region to use. available: "+sliceJoin(markets))
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
 	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
@@ -403,14 +436,24 @@ func main() {
 	dbusChk()
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
-	pic := downloadWallpaper(xml, dir)
-	setWallpaper(de, pic, picOpts)
-	fmt.Println("the picture location:" + pic)
+
+	if len(de) != 0 {
+		pic = downloadWallpaper(xml, dir)
+		setWallpaper(de, pic, picOpts)
+		fmt.Println("the picture location:" + pic)
+	}
+
 	ticker := time.NewTicker(time.Hour * 1)
 
 	if loop {
 		for range ticker.C {
-			fmt.Println("Waiting for an hour")
+			// there's a racing problem between bing-wallpaper and the desktop.
+			// if bing-wallpaper was started before the desktop by systemd, we'll fail to get any desktop information
+			// so we try an hour later, if the destkop variable is still null, then we treat it as WM
+			de = desktopEnv()
+			if len(de) == 0 {
+				de = "WM"
+			}
 			newPic := downloadWallpaper(xml, dir)
 			if newPic != pic {
 				setWallpaper(de, newPic, picOpts)
@@ -430,4 +473,6 @@ func main() {
 		ticker.Stop()
 		os.Exit(0)
 	}()
+
+	ticker.Stop() // memory leak
 }
