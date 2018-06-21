@@ -165,7 +165,8 @@ func desktopEnv() string {
 	if lxde := lxdeSession(env); len(lxde) != 0 {
 		return lxde
 	}
-	return netWMSession(env)
+	env = netWMSession()
+	return env
 }
 
 func getURLPrefix(url string) string {
@@ -435,11 +436,8 @@ func setXfceWallpaper(pic string) {
 }
 
 func main() {
-	var mkt string
-	var pic string
-	var picOpts string
+	var mkt, pic, picOpts, env string
 	var loop bool
-	env := desktopEnv()
 	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
@@ -451,10 +449,15 @@ func main() {
 	flag.StringVar(&mkt, "market", "zh-CN", "the region to use. available: "+sliceJoin(markets))
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
 	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
+	flag.StringVar(&env, "env", "", "specify the desktop environment or window manager")
 	flag.Parse()
 
 	if !sliceContains(markets, mkt) {
 		panic("market must be one of the following: " + sliceJoin(markets))
+	}
+
+	if len(env) == 0 {
+		env = desktopEnv()
 	}
 
 	fmt.Println("started bing-wallpaper")
@@ -477,7 +480,7 @@ func main() {
 			// so we try an hour later, if the destkop variable is still null, then we treat it as WM
 			env = desktopEnv()
 			if len(env) == 0 {
-				de = "WM"
+				env = "WM"
 			}
 			newPic := downloadWallpaper(xml, dir)
 			if newPic != pic {
