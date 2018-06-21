@@ -176,6 +176,18 @@ func imageChk(image string, length int) bool {
 	return re.MatchString(string(out)) && info.Size() == int64(length)
 }
 
+func uriPath(uri string) string {
+	re := regexp.MustCompile(`http(s)?:\/\/[^\/]+(.*)`)
+	if re.MatchString(uri) {
+		return re.FindStringSubmatch(uri)[2]
+	}
+	return ""
+}
+
+func urlChk(resp *http.Response, uri string) bool {
+	return uriPath(resp.Request.URL.String()) == uriPath(uri)
+}
+
 // download the highest resolution
 func downloadWallpaper(xml string, dir string) string {
 	file := ""
@@ -199,7 +211,8 @@ func downloadWallpaper(xml string, dir string) string {
 
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 
-		if resp.StatusCode == 404 {
+		// bing will not return 301 for redirect
+		if resp.StatusCode != 200 || !urlChk(resp, uri) {
 			continue
 		} else {
 			file = filepath.Join(dir, filepath.Base(uri))
