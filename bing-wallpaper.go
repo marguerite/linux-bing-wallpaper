@@ -280,64 +280,47 @@ func dbusChk() {
 func setWallpaper(env, pic, picOpts string) {
 	fmt.Println("setting wallpaper for " + env)
 
-	if env == "x-cinnamon" {
+	switch env {
+	case "x-cinnamon":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
 		_, err := exec.Command("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", "file://"+pic).Output()
 		errChk(err)
 		_, err = exec.Command("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-options", picOpts).Output()
 		errChk(err)
-	}
-
-	if env == "gnome" {
+	case "gnome":
 		_, err := exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_filename", pic).Output()
 		errChk(err)
 		_, err = exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", picOpts).Output()
 		errChk(err)
-	}
-
-	if env == "gnome3" {
+	case "gnome3":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
 		_, err := exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
 		errChk(err)
 		_, err = exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-options", picOpts).Output()
 		errChk(err)
-	}
-
-	if env == "mate" {
+	case "mate":
 		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic).Output()
 		errChk(err)
-	}
-
-	if env == "lxde" {
+	case "lxde":
 		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm", "--wallpaper-mode", picOpts).Output()
 		errChk(err1)
-	}
-
-	if env == "lxqt" {
+	case "lxqt":
 		_, err := exec.Command("/usr/bin/pcmanfm-qt", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm-qt", "--wallpaper-mode", picOpts).Output()
 		errChk(err1)
-	}
-
-	if env == "xfce" {
+	case "xfce":
 		setXfceWallpaper(pic)
-	}
-
-	if env == "kde4" {
+	case "kde4":
 		setKde4Wallpaper(pic)
-	}
-
-	if env == "plasma5" {
+	case "plasma5":
 		setPlasmaWallpaper(pic)
-	}
-
-	// other netWM/EWMH window manager
-	if env != "" {
+	default:
+		// other netWM/EWMH window manager
 		_, err := exec.Command("/usr/bin/feh", "--bg-tile", pic).Output()
 		errChk(err)
 	}
