@@ -46,10 +46,6 @@ func sliceJoin(arr []string) string {
 	return s
 }
 
-func toString(b []byte) string {
-	return string(b[:])
-}
-
 func sessionEnv() string {
 	// use $XDG_CURRENT_DESKTOP, then $DESKTOP_SESSION
 	if e := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP")); len(e) != 0 {
@@ -136,6 +132,22 @@ func lxdeSession(session string) string {
 	return ""
 }
 
+func netWMSession() string {
+	out, err := exec.Command("/usr/bin/xprop", "-display", os.Getenv("DISPLAY"), "-root").Output()
+	errChk(err)
+	re := regexp.MustCompile(`(?m)^_NET_SUPPORTING_WM_CHECK\(WINDOW\): window id # ([^\n]+)\n`)
+	if re.MatchString(string(out)) {
+		winID := re.FindStringSubmatch(string(out))[1]
+		out, err = exec.Command("/usr/bin/xprop", "-id", winID).Output()
+		re = regexp.MustCompile(`(?m)_NET_WM_NAME.*?= "(.*?)"\n`)
+		if re.MatchString(string(out)) {
+			return strings.ToLower(re.FindStringSubmatch(string(out))[1])
+		}
+		return ""
+	}
+	return ""
+}
+
 func desktopEnv() string {
 	env := sessionEnv()
 	if kde := kdeSession(env); len(kde) != 0 {
@@ -153,7 +165,7 @@ func desktopEnv() string {
 	if lxde := lxdeSession(env); len(lxde) != 0 {
 		return lxde
 	}
-	return env
+	return netWMSession(env)
 }
 
 func getURLPrefix(url string) string {
@@ -162,9 +174,8 @@ func getURLPrefix(url string) string {
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	errChk(err)
-	res := toString(body)
 	re := regexp.MustCompile("<urlBase>(.*)</urlBase>")
-	return "http://bing.com" + re.FindStringSubmatch(res)[1]
+	return "http://bing.com" + re.FindStringSubmatch(string(body))[1]
 }
 
 func imageChk(image string, length int) bool {
@@ -265,10 +276,10 @@ func dbusChk() {
 	}
 }
 
-func setWallpaper(de, pic, picOpts string) {
-	fmt.Println("setting wallpaper for " + de)
+func setWallpaper(env, pic, picOpts string) {
+	fmt.Println("setting wallpaper for " + env)
 
-	if de == "x-cinnamon" {
+	if env == "x-cinnamon" {
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
 		_, err := exec.Command("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", "file://"+pic).Output()
@@ -277,14 +288,14 @@ func setWallpaper(de, pic, picOpts string) {
 		errChk(err)
 	}
 
-	if de == "gnome" {
+	if env == "gnome" {
 		_, err := exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_filename", pic).Output()
 		errChk(err)
 		_, err = exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", picOpts).Output()
 		errChk(err)
 	}
 
-	if de == "gnome3" {
+	if env == "gnome3" {
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
 		_, err := exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
@@ -293,38 +304,39 @@ func setWallpaper(de, pic, picOpts string) {
 		errChk(err)
 	}
 
-	if de == "mate" {
+	if env == "mate" {
 		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic).Output()
 		errChk(err)
 	}
 
-	if de == "lxde" {
+	if env == "lxde" {
 		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm", "--wallpaper-mode", picOpts).Output()
 		errChk(err1)
 	}
 
-	if de == "lxqt" {
+	if env == "lxqt" {
 		_, err := exec.Command("/usr/bin/pcmanfm-qt", "-w", pic).Output()
 		errChk(err)
 		_, err1 := exec.Command("/usr/bin/pcmanfm-qt", "--wallpaper-mode", picOpts).Output()
 		errChk(err1)
 	}
 
-	if de == "xfce" {
+	if env == "xfce" {
 		setXfceWallpaper(pic)
 	}
 
-	if de == "kde4" {
+	if env == "kde4" {
 		setKde4Wallpaper(pic)
 	}
 
-	if de == "plasma5" {
+	if env == "plasma5" {
 		setPlasmaWallpaper(pic)
 	}
 
-	if de == "WM" {
+	// other netWM/EWMH window manager
+	if env != "" {
 		_, err := exec.Command("/usr/bin/feh", "--bg-tile", pic).Output()
 		errChk(err)
 	}
@@ -427,7 +439,7 @@ func main() {
 	var pic string
 	var picOpts string
 	var loop bool
-	de := desktopEnv()
+	env := desktopEnv()
 	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
@@ -450,9 +462,9 @@ func main() {
 
 	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
 
-	if len(de) != 0 {
+	if len(env) != 0 {
 		pic = downloadWallpaper(xml, dir)
-		setWallpaper(de, pic, picOpts)
+		setWallpaper(env, pic, picOpts)
 		fmt.Println("the picture location:" + pic)
 	}
 
@@ -463,13 +475,13 @@ func main() {
 			// there's a racing problem between bing-wallpaper and the desktop.
 			// if bing-wallpaper was started before the desktop by systemd, we'll fail to get any desktop information
 			// so we try an hour later, if the destkop variable is still null, then we treat it as WM
-			de = desktopEnv()
-			if len(de) == 0 {
+			env = desktopEnv()
+			if len(env) == 0 {
 				de = "WM"
 			}
 			newPic := downloadWallpaper(xml, dir)
 			if newPic != pic {
-				setWallpaper(de, newPic, picOpts)
+				setWallpaper(env, newPic, picOpts)
 				fmt.Println("the new picture:" + newPic)
 			}
 		}
