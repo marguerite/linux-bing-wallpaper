@@ -204,7 +204,7 @@ func urlChk(resp *http.Response, uri string) bool {
 func downloadWallpaper(xml string, dir string) string {
 	file := ""
 	prefix := getURLPrefix(xml)
-	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x720", "_1024x768"}
+	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x768", "_1280x720", "_1024x768"}
 	// create picture diretory if does not already exist
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		fmt.Println("creating " + dir)
@@ -224,9 +224,7 @@ func downloadWallpaper(xml string, dir string) string {
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 
 		// bing will not return 301 for redirect
-		if resp.StatusCode != 200 || !urlChk(resp, uri) {
-			continue
-		} else {
+		if resp.StatusCode == 200 && urlChk(resp, uri) {
 			file = filepath.Join(dir, filepath.Base(uri))
 			if _, err := os.Stat(file); os.IsNotExist(err) {
 				out, err := os.Create(file)
