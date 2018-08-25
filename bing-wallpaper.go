@@ -132,6 +132,12 @@ func lxdeSession(session string) string {
 	return ""
 }
 
+func ddeSession(session string) string {
+	if session == "deepin" {
+		return "dde"
+	}
+	return ""
+}
 func netWMSession() string {
 	out, err := exec.Command("/usr/bin/xprop", "-display", os.Getenv("DISPLAY"), "-root").Output()
 	errChk(err)
@@ -152,6 +158,9 @@ func desktopEnv() string {
 	env := sessionEnv()
 	if kde := kdeSession(env); len(kde) != 0 {
 		return kde
+	}
+	if dde := ddeSession(env); len(dde) != 0 {
+		return dde
 	}
 	if gnome := gnomeSession(env); len(gnome) != 0 {
 		return gnome
@@ -297,6 +306,13 @@ func setWallpaper(env, pic, picOpts string) {
 		_, err := exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
 		errChk(err)
 		_, err = exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-options", picOpts).Output()
+		errChk(err)
+	case "dde":
+		os.Setenv("DISPLAY", ":0")
+		os.Setenv("GSETTINGS_BACKEND", "dconf")
+		_, err := exec.Command("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
+		errChk(err)
+		_, err = exec.Command("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-options", picOpts).Output()
 		errChk(err)
 	case "mate":
 		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic).Output()
