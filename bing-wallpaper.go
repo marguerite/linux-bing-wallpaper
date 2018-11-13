@@ -89,7 +89,7 @@ func kdeSession(session string) string {
 
 func isGnome3() bool {
 	// gnome-default-applications-properties is only available in GNOME 2.x but not in GNOME 3.x
-	if _, err := os.Stat("/usr/bin/gnome-default-applications-properties"); !os.IsNotExist(err) {
+	if _, err := os.Stat("/usr/bin/gnome-default-applications-properties"); os.IsNotExist(err) {
 		return true
 	}
 	return false
@@ -419,7 +419,7 @@ func setXfceWallpaper(pic string) {
 func main() {
 	var mkt, pic, picOpts, env string
 	var loop bool
-	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "en-NZ", "en-CA"}
+	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
 	// are stored. HOME holds the path of the current user's home directory
