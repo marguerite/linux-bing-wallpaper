@@ -315,7 +315,7 @@ func setWallpaper(env, pic, picOpts string) {
 		_, err = exec.Command("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-options", picOpts).Output()
 		errChk(err)
 	case "mate":
-		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic).Output()
+		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", fmt.Sprintf("'%s'", pic)).Output()
 		errChk(err)
 	case "lxde":
 		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
