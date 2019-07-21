@@ -290,8 +290,8 @@ func setWallpaper(env, pic, picOpts string) {
 	fmt.Println("setting wallpaper for " + env)
 
 	switch env {
-        case "none":
-            // nothing done
+	case "none":
+		// nothing done
 	case "x-cinnamon":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
@@ -451,7 +451,7 @@ func main() {
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
 	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
 	flag.StringVar(&env, "env", "", "specify the desktop environment or window manager")
-        flag.StringVar(&dir, "dir", default_dir, "where to save pictures")
+	flag.StringVar(&dir, "dir", default_dir, "where to save pictures")
 	flag.Parse()
 
 	if !sliceContains(markets, mkt) {
