@@ -1,3 +1,5 @@
+//usr/bin/go run $0 $@ ; exit
+
 // Author: Marguerite Su <i@marguerite.su>
 // License: GPL-3.0
 // Description: Download Bing Wallpaper of the Day and set it as your Linux Desktop.
@@ -433,13 +435,13 @@ func setXfceWallpaper(pic string) {
 }
 
 func main() {
-	var mkt, pic, picOpts, env string
+	var mkt, pic, picOpts, env, dir string
 	var loop bool
 	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
 	// are stored. HOME holds the path of the current user's home directory
-	dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
+	default_dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
 	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
 	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
 	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
@@ -447,6 +449,7 @@ func main() {
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
 	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
 	flag.StringVar(&env, "env", "", "specify the desktop environment or window manager")
+        flag.StringVar(&dir, "dir", default_dir, "where to save pictures")
 	flag.Parse()
 
 	if !sliceContains(markets, mkt) {
