@@ -290,6 +290,8 @@ func setWallpaper(env, pic, picOpts string) {
 	fmt.Println("setting wallpaper for " + env)
 
 	switch env {
+        case "none":
+            // nothing done
 	case "x-cinnamon":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
