@@ -443,7 +443,7 @@ func main() {
 	idx := "0"
 	// dir is used to set the location where Bing pictures of the day
 	// are stored. HOME holds the path of the current user's home directory
-	default_dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
+	defaultDir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
 	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
 	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
 	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
@@ -451,7 +451,7 @@ func main() {
 	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
 	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
 	flag.StringVar(&env, "env", "", "specify the desktop environment or window manager")
-	flag.StringVar(&dir, "dir", default_dir, "where to save pictures")
+	flag.StringVar(&dir, "dir", defaultDir, "where to save pictures")
 	flag.Parse()
 
 	if !sliceContains(markets, mkt) {
