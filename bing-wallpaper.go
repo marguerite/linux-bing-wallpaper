@@ -335,7 +335,7 @@ func setWallpaper(env, pic, picOpts string) {
 		setPlasmaWallpaper(pic)
 	default:
 		// other netWM/EWMH window manager
-		_, err := exec.Command("/usr/bin/feh", "--bg-tile", pic).Output()
+		_, err := exec.Command("/usr/bin/feh", "--bg-fill", pic).Output()
 		errChk(err)
 	}
 }
