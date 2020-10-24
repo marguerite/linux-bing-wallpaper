@@ -6,11 +6,11 @@
 package main
 
 import (
-	"errors"
-	"flag"
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -21,161 +21,21 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"github.com/gookit/color"
+	"github.com/marguerite/go-stdlib/slice"
+	"github.com/marguerite/linux-bing-wallpaper/desktopenvironment"
+	"github.com/urfave/cli"
+)
+
+var (
+	markets = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
 )
 
 func errChk(e error) {
 	if e != nil {
 		panic(e)
 	}
-}
-
-func sliceContains(arr []string, s string) bool {
-	for _, i := range arr {
-		if i == s {
-			return true
-		}
-	}
-	return false
-}
-
-func sliceJoin(arr []string) string {
-	var s string
-	for _, i := range arr {
-		s += i + " "
-	}
-	return s
-}
-
-func sessionEnv() string {
-	// use $XDG_CURRENT_DESKTOP, then $DESKTOP_SESSION
-	if e := strings.ToLower(os.Getenv("XDG_CURRENT_DESKTOP")); len(e) != 0 {
-		return e
-	}
-	if e := strings.ToLower(os.Getenv("DESKTOP_SESSION")); len(e) != 0 {
-		return e
-	}
-	return ""
-}
-
-func isPlasma5() (bool, error) {
-	re := regexp.MustCompile(`\s(\d+)\..*?`)
-	// check plasmashell's version
-	if _, err := os.Stat("/usr/bin/plasmashell"); !os.IsNotExist(err) {
-		version, err := exec.Command("/usr/bin/plasmashell", "-v").Output()
-		if err != nil {
-			return false, err
-		}
-		if re.MatchString(string(version)) && re.FindStringSubmatch(string(version))[1] == "5" {
-			return true, nil
-		}
-		return false, errors.New("can't find valid version from plasmashell -v")
-	}
-	return false, nil
-}
-
-func kdeSession(session string) string {
-	env := os.Getenv("KDE_FULL_SESSION")
-	// use sessionEnv, then $KDE_FULL_SESSION
-	if session == "kde" || len(env) != 0 {
-		plasma5, err := isPlasma5()
-		errChk(err)
-		if plasma5 {
-			return "plasma5"
-		}
-		return "kde4"
-	}
-	return ""
-}
-
-func isGnome3() bool {
-	// gnome-default-applications-properties is only available in GNOME 2.x but not in GNOME 3.x
-	if _, err := os.Stat("/usr/bin/gnome-default-applications-properties"); os.IsNotExist(err) {
-		return true
-	}
-	return false
-}
-
-func gnomeSession(session string) string {
-	_, err := exec.Command("/usr/bin/dbus-send", "--print-reply", "--dest=org.freedesktop.DBus", "/org/freedesktop/DBus", "org.freedesktop.DBus.GetNameOwner", "string:org.gnome.SessionManager").Output()
-	if session == "gnome" || len(os.Getenv("GNOME_DESKTOP_SESSION_ID")) != 0 || err == nil {
-		if isGnome3() {
-			return "gnome3"
-		}
-		return "gnome"
-	}
-	return ""
-}
-
-func mateSession(session string) string {
-	if session == "mate" || len(os.Getenv("MATE_DESKTOP_SESSION_ID")) != 0 {
-		return "mate"
-	}
-	return ""
-}
-
-func xfceSession(session string) string {
-	saveMode, _ := exec.Command("/usr/bin/xprop", "-root", "_DT_SAVE_MODE").Output()
-	window, _ := exec.Command("/usr/bin/xprop", "-root").Output()
-	saveModeRe := regexp.MustCompile(" - \"xfce4\"$")
-	windowRe := regexp.MustCompile("^xfce_desktop_window")
-
-	if session == "xfce" || session == "xfce4" || session == "xfce session" || saveModeRe.MatchString(string(saveMode)) || windowRe.MatchString(string(window)) {
-		return "xfce"
-	}
-	return ""
-}
-
-func lxdeSession(session string) string {
-	if session == "lxde" || session == "lxqt" || session == "lubuntu" {
-		return "lxde"
-	}
-	return ""
-}
-
-func ddeSession(session string) string {
-	if session == "deepin" {
-		return "dde"
-	}
-	return ""
-}
-func netWMSession() string {
-	out, err := exec.Command("/usr/bin/xprop", "-display", os.Getenv("DISPLAY"), "-root").Output()
-	errChk(err)
-	re := regexp.MustCompile(`(?m)^_NET_SUPPORTING_WM_CHECK\(WINDOW\): window id # ([^\n]+)\n`)
-	if re.MatchString(string(out)) {
-		winID := re.FindStringSubmatch(string(out))[1]
-		out, err = exec.Command("/usr/bin/xprop", "-id", winID).Output()
-		re = regexp.MustCompile(`(?m)_NET_WM_NAME.*?= "(.*?)"\n`)
-		if re.MatchString(string(out)) {
-			return strings.ToLower(re.FindStringSubmatch(string(out))[1])
-		}
-		return ""
-	}
-	return ""
-}
-
-func desktopEnv() string {
-	env := sessionEnv()
-	if kde := kdeSession(env); len(kde) != 0 {
-		return kde
-	}
-	if dde := ddeSession(env); len(dde) != 0 {
-		return dde
-	}
-	if gnome := gnomeSession(env); len(gnome) != 0 {
-		return gnome
-	}
-	if mate := mateSession(env); len(mate) != 0 {
-		return mate
-	}
-	if xfce := xfceSession(env); len(xfce) != 0 {
-		return xfce
-	}
-	if lxde := lxdeSession(env); len(lxde) != 0 {
-		return lxde
-	}
-	env = netWMSession()
-	return env
 }
 
 func getURLPrefix(url string) string {
@@ -409,7 +269,7 @@ for (i=0;i<all.length;i++) {
 
 	out, err := exec.Command("/usr/bin/dbus-send", "--session", "--dest=org.kde.plasmashell", "--type=method_call", "--print-reply", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", str).Output()
 	errChk(err)
-
+	fmt.Println(string(out))
 	if strings.Contains(string(out), "Widgets are locked") {
 		fmt.Println("Can't set wallpaper for Plasma because widgets are locked!")
 	}
@@ -432,72 +292,143 @@ func setXfceWallpaper(pic string) {
 	}
 }
 
-func main() {
-	var mkt, pic, picOpts, env string
-	var loop bool
-	markets := []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
-	idx := "0"
-	// dir is used to set the location where Bing pictures of the day
-	// are stored. HOME holds the path of the current user's home directory
-	dir := "/home/" + os.Getenv("LOGNAME") + "/Pictures/Bing"
-	// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
-	// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
-	// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
-	flag.StringVar(&mkt, "market", "zh-CN", "the region to use. available: "+sliceJoin(markets))
-	flag.BoolVar(&loop, "loop", false, "whether to loop or not")
-	flag.StringVar(&picOpts, "picopts", "zoom", "picture options")
-	flag.StringVar(&env, "env", "", "specify the desktop environment or window manager")
-	flag.Parse()
-
-	if !sliceContains(markets, mkt) {
-		panic("market must be one of the following: " + sliceJoin(markets))
-	}
-
-	if len(env) == 0 {
-		env = desktopEnv()
-	}
-
-	fmt.Println("started bing-wallpaper")
-	dbusChk()
-
-	xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=" + idx + "&n=1&mkt=" + mkt
-
-	if len(env) != 0 {
-		pic = downloadWallpaper(xml, dir)
-		setWallpaper(env, pic, picOpts)
-		fmt.Println("the picture location:" + pic)
-	}
-
-	ticker := time.NewTicker(time.Hour * 1)
-
-	if loop {
-		for range ticker.C {
-			// there's a racing problem between bing-wallpaper and the desktop.
-			// if bing-wallpaper was started before the desktop by systemd, we'll fail to get any desktop information
-			// so we try an hour later, if the destkop variable is still null, then we treat it as WM
-			env = desktopEnv()
-			if len(env) == 0 {
-				env = "WM"
-			}
-			newPic := downloadWallpaper(xml, dir)
-			if newPic != pic {
-				setWallpaper(env, newPic, picOpts)
-				fmt.Println("the new picture:" + newPic)
-			}
+func runDaemon(ctx context.Context, c Config, doJob func(c Config), out io.Writer) error {
+	log.SetOutput(out)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.Tick(c.Duration):
+			doJob(c)
 		}
 	}
+}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+// Config
+type Config struct {
+	Market   string
+	Dir      string
+	Desktop  string
+	Options  string
+	Duration time.Duration
+}
 
-	go func() {
-		sig := <-sigs
-		fmt.Println("received signal:")
-		fmt.Println(sig)
-		fmt.Println("quiting...")
-		ticker.Stop()
-		os.Exit(0)
-	}()
+func main() {
+	duration, _ := time.ParseDuration("1m")
 
-	ticker.Stop() // memory leak
+	cli.VersionFlag = cli.BoolFlag{
+		Name:  "version",
+		Usage: "Display version and exit.",
+	}
+	app := cli.NewApp()
+	app.Usage = "Linux Bing Wallpaper"
+	app.Description = "Set Wallpaper of the Day from bing.com as your desktop wallpaper."
+	app.Version = "20201023"
+	app.Authors = []cli.Author{
+		{Name: "Marguerite Su", Email: "marguerite@opensuse.org"},
+	}
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:  "market, m",
+			Value: "zh-CN",
+			Usage: "The region to use",
+		},
+		cli.BoolFlag{
+			Name:  "daemon",
+			Usage: "Run as daemon",
+		},
+		// valid options for gnome and cinnamon are: none, wallpaper, centered, scaled, stretched, zoom, spanned
+		// valid options for lxde are: color (that is, disabled), stretch, crop, center, tile, screen
+		// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
+		cli.StringFlag{
+			Name:  "picture-options, o",
+			Value: "zoom",
+			Usage: "Picture options",
+		},
+		cli.StringFlag{
+			Name:  "desktop",
+			Usage: "Specify your destkop environment",
+		},
+		cli.StringFlag{
+			Name:  "dir, d",
+			Usage: "The directory to hold the wallpapers",
+		},
+		cli.DurationFlag{
+			Name:  "interval, i",
+			Value: duration,
+			Usage: "The time interval for another run",
+		},
+	}
+
+	app.Action = func(c *cli.Context) error {
+		if ok, err := slice.Contains(markets, c.String("m")); !ok || err != nil {
+			fmt.Printf("market must be one of the following: %s\n", strings.Join(markets, " "))
+			os.Exit(1)
+		}
+
+		dir := c.String("dir")
+		if len(dir) == 0 {
+			dir = filepath.Join(os.Getenv("HOME"), "Pictures", "Bing")
+		}
+
+		desktop := c.String("desktop")
+		if len(desktop) == 0 {
+			desktop = desktopenvironment.Name()
+		}
+
+		color.Info.Println("Started linux-bing-wallpaper")
+		dbusChk()
+
+		config := Config{c.String("m"), dir, desktop, c.String("o"), c.Duration("i")}
+
+		doJob := func(c Config) {
+			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + c.Market
+			if len(c.Desktop) > 0 {
+				pic := downloadWallpaper(xml, c.Dir)
+				setWallpaper(c.Desktop, pic, c.Options)
+				color.Info.Printf("Picture saved to: %s\n", pic)
+			}
+		}
+
+		if c.Bool("daemon") {
+			ctx := context.Background()
+			ctx, cancel := context.WithCancel(ctx)
+			signalChan := make(chan os.Signal, 1)
+			signal.Notify(signalChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+
+			defer func() {
+				signal.Stop(signalChan)
+				cancel()
+			}()
+
+			go func() {
+				select {
+				case s := <-signalChan:
+					switch s {
+					case syscall.SIGINT, syscall.SIGTERM:
+						color.Warn.Println("Got SIGINT/SIGTERM, exiting.")
+						cancel()
+						os.Exit(1)
+					case syscall.SIGHUP:
+						color.Warn.Println("Got SIGHUP, reloading.")
+						// FIXME configuration reload code
+					}
+				case <-ctx.Done():
+					color.Info.Println("Done")
+					os.Exit(1)
+				}
+			}()
+
+			if err := runDaemon(ctx, config, doJob, os.Stdout); err != nil {
+				fmt.Fprintf(os.Stderr, "%s\n", err)
+				os.Exit(1)
+			}
+		} else {
+			doJob(config)
+		}
+
+		return nil
+	}
+
+	_ = app.Run(os.Args)
 }
