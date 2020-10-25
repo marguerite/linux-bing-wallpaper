@@ -13,7 +13,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -22,7 +21,10 @@ import (
 	"syscall"
 	"time"
 
+	gettext "github.com/chai2010/gettext-go"
 	"github.com/gookit/color"
+	"github.com/marguerite/go-stdlib/dir"
+	"github.com/marguerite/go-stdlib/exec"
 	"github.com/marguerite/go-stdlib/slice"
 	"github.com/marguerite/linux-bing-wallpaper/desktopenvironment"
 	"github.com/urfave/cli"
@@ -32,28 +34,37 @@ var (
 	markets = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
 )
 
-func errChk(e error) {
+func errChk(status int, e error) {
 	if e != nil {
 		panic(e)
+	}
+	if status != 0 {
+		panic(fmt.Errorf("exit status is %d", status))
 	}
 }
 
 func getURLPrefix(url string) string {
 	resp, err := http.Get(url)
-	errChk(err)
+	if err != nil {
+		panic(err)
+	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
-	errChk(err)
+	if err != nil {
+		panic(err)
+	}
 	re := regexp.MustCompile("<urlBase>(.*)</urlBase>")
 	return "http://bing.com" + re.FindStringSubmatch(string(body))[1]
 }
 
 func imageChk(image string, length int) bool {
 	re := regexp.MustCompile(`^image/`)
-	out, err := exec.Command("/usr/bin/file", "-L", "--mime-type", "-b", image).Output()
-	errChk(err)
+	out, status, err := exec.Exec3("/usr/bin/file", "-L", "--mime-type", "-b", image)
+	errChk(status, err)
 	info, err := os.Stat(image)
-	errChk(err)
+	if err != nil {
+		panic(err)
+	}
 	return re.MatchString(string(out)) && info.Size() == int64(length)
 }
 
@@ -78,7 +89,9 @@ func downloadWallpaper(xml string, dir string) string {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		fmt.Println("creating " + dir)
 		err = os.MkdirAll(dir, 0755)
-		errChk(err)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	for _, res := range resolutions {
@@ -87,7 +100,9 @@ func downloadWallpaper(xml string, dir string) string {
 		fmt.Println("upstream uri:" + uri)
 
 		resp, err := http.Get(uri)
-		errChk(err)
+		if err != nil {
+			panic(err)
+		}
 		defer resp.Body.Close()
 
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
@@ -97,10 +112,14 @@ func downloadWallpaper(xml string, dir string) string {
 			file = filepath.Join(dir, filepath.Base(uri))
 			if _, err := os.Stat(file); os.IsNotExist(err) {
 				out, err := os.Create(file)
-				errChk(err)
+				if err != nil {
+					panic(err)
+				}
 
 				_, err = io.Copy(out, resp.Body)
-				errChk(err)
+				if err != nil {
+					panic(err)
+				}
 
 				out.Sync()
 				out.Close()
@@ -110,7 +129,9 @@ func downloadWallpaper(xml string, dir string) string {
 					break
 				} else {
 					err = os.Remove(file)
-					errChk(err)
+					if err != nil {
+						panic(err)
+					}
 					file = ""
 					continue
 				}
@@ -119,7 +140,9 @@ func downloadWallpaper(xml string, dir string) string {
 					break
 				} else {
 					err = os.Remove(file)
-					errChk(err)
+					if err != nil {
+						panic(err)
+					}
 					file = ""
 					continue
 				}
@@ -134,9 +157,13 @@ func dbusChk() {
 	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
 		fmt.Println("setting DBUS_SESSION_BUS_ADDRESS")
 		path, err := filepath.Glob("/home/" + os.Getenv("LOGNAME") + "/.dbus/session-bus/*")
-		errChk(err)
+		if err != nil {
+			panic(err)
+		}
 		file, err := ioutil.ReadFile(path[0])
-		errChk(err)
+		if err != nil {
+			panic(err)
+		}
 
 		re := regexp.MustCompile("DBUS_SESSION_BUS_ADDRESS='(.*)'")
 		dbus := re.FindStringSubmatch(string(file))[1]
@@ -146,132 +173,112 @@ func dbusChk() {
 
 func setWallpaper(env, pic, picOpts string) {
 	fmt.Println("setting wallpaper for " + env)
+	var status int
+	var err error
 
 	switch env {
 	case "x-cinnamon":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, err := exec.Command("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", "file://"+pic).Output()
-		errChk(err)
-		_, err = exec.Command("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-options", picOpts).Output()
-		errChk(err)
+		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", "file://"+pic)
+		errChk(status, err)
+		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-options", picOpts)
+		errChk(status, err)
 	case "gnome":
-		_, err := exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_filename", pic).Output()
-		errChk(err)
-		_, err = exec.Command("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", picOpts).Output()
-		errChk(err)
+		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_filename", pic)
+		errChk(status, err)
+		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", picOpts)
+		errChk(status, err)
 	case "gnome3":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, err := exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
-		errChk(err)
-		_, err = exec.Command("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-options", picOpts).Output()
-		errChk(err)
+		_, status, err := exec.Exec3("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic)
+		errChk(status, err)
+		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-options", picOpts)
+		errChk(status, err)
 	case "dde":
 		os.Setenv("DISPLAY", ":0")
 		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, err := exec.Command("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-uri", "file://"+pic).Output()
-		errChk(err)
-		_, err = exec.Command("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-options", picOpts).Output()
-		errChk(err)
+		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-uri", "file://"+pic)
+		errChk(status, err)
+		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-options", picOpts)
+		errChk(status, err)
 	case "mate":
-		_, err := exec.Command("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic).Output()
-		errChk(err)
-	case "lxde":
-		_, err := exec.Command("/usr/bin/pcmanfm", "-w", pic).Output()
-		errChk(err)
-		_, err1 := exec.Command("/usr/bin/pcmanfm", "--wallpaper-mode", picOpts).Output()
-		errChk(err1)
-	case "lxqt":
-		_, err := exec.Command("/usr/bin/pcmanfm-qt", "-w", pic).Output()
-		errChk(err)
-		_, err1 := exec.Command("/usr/bin/pcmanfm-qt", "--wallpaper-mode", picOpts).Output()
-		errChk(err1)
+		_, status, err = exec.Exec3("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic)
+		errChk(status, err)
+	case "lxde", "lxqt":
+		cmd := "/usr/bin/pcmanfm"
+		if env == "lxqt" {
+			cmd += "-qt"
+		}
+		_, status, err = exec.Exec3(cmd, "-w", pic)
+		errChk(status, err)
+		_, status, err := exec.Exec3(cmd, "--wallpaper-mode", picOpts)
+		errChk(status, err)
 	case "xfce":
 		setXfceWallpaper(pic)
 	case "kde4":
-		setKde4Wallpaper(pic)
+		setPlasmaWallpaper(pic, env)
 	case "plasma5":
-		setPlasmaWallpaper(pic)
+		setPlasmaWallpaper(pic, env)
 	default:
 		// other netWM/EWMH window manager
-		_, err := exec.Command("/usr/bin/feh", "--bg-tile", pic).Output()
-		errChk(err)
+		_, status, err = exec.Exec3("/usr/bin/feh", "--bg-tile", pic)
+		errChk(status, err)
 	}
 }
 
-func setKde4Wallpaper(pic string) {
-	if _, err := os.Stat("/usr/bin/xdotool"); os.IsNotExist(err) {
+func setPlasmaWallpaper(pic, env string) {
+	if _, err := exec.Search("/usr/bin/xdotool"); err != nil {
 		panic("please install xdotool")
 	}
-
-	if _, err := os.Stat("/usr/bin/gettext"); os.IsNotExist(err) {
+	if _, err := exec.Search("/usr/bin/gettext"); err != nil {
 		panic("please install gettext-runtime")
 	}
 
-	re := regexp.MustCompile(`^(.*?)\..*$`)
-	locale := re.FindStringSubmatch(os.Getenv("LANG"))[1]
+	lang, _ := exec.Env("LANG")
+	lang = strings.Split(lang, ".")[0]
+	console := "Desktop Shell Scripting Console"
+	var window, suffix, script string
+	prefix := filepath.Join(os.Getenv("HOME"), ".local/share/plasmashell")
+	dir.MkdirP(prefix)
+	file := filepath.Join(prefix, "interactiveconsoleautosave.js")
 
-	console1 := "Desktop Shell Scripting Console"
-	console2 := "Plasma Desktop Shell"
-
-	var jsconsole string
-	if locale != "" {
-		os.Setenv("LANGUAGE", locale)
-		out, err := exec.Command("/usr/bin/gettext", "-d", "plasma-desktop", "-s", console1).Output()
-		errChk(err)
-		out1, err1 := exec.Command("/usr/bin/gettext", "-d", "plasma-desktop", "-s", console2).Output()
-		errChk(err1)
-		jsconsole = string(out) + " - " + string(out1)
-	} else {
-		jsconsole = console1 + " - " + console2
+	switch env {
+	case "kde4":
+		suffix = "Plasma Desktop Shell"
+		window = console + " - " + suffix
+		if len(lang) > 0 {
+			gettext := gettext.New("plasma-desktop", "/usr/share/locale").SetLanguage("zh_CN")
+			window = gettext.Gettext(console) + " - " + gettext.Gettext(suffix)
+		}
+		script = "var wallpaper = " + pic + "; var activity = activities()[0]; activity.currentConfigGroup = new Array(\"wallpaper\", \"image\"); activity.writeConfig(\"wallpaper\", wallpaper); activity.writeConfig(\"userswallpaper\", wallpaper); activity.reloadConfig();\n"
+		ioutil.WriteFile(file, []byte(script), 0644)
+		_, status, err := exec.Exec3("/usr/bin/qdbus", "org.kde.plasma-desktop", "/App", "local.PlasmaApp.loadScriptInInteractiveConsole", file)
+		errChk(status, err)
+		_, status, err = exec.Exec3("/usr/bin/xdotool", "search", "--name", window, "windowactivate", "key", "ctrl+e", "key", "ctrl+w")
+		errChk(status, err)
+	case "plasma5":
+		suffix = "Plasma"
+		window = console + " - " + suffix
+		if len(lang) > 0 {
+			gettext := gettext.New("plasmashellprivateplugin", "/usr/share/locale/kf5").SetLanguage("zh_CN")
+			window = gettext.Gettext(console) + " - " + gettext.Gettext(suffix)
+		}
+		script = "var all = desktops(); for (i=0; i < all.length; i++) { d = all[i]; d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"Generate\"); d.writeConfig(\"Image\", \"file://" + pic + "\")}\n"
+		ioutil.WriteFile(file, []byte(script), 0644)
+		out, status, err := exec.Exec3("/usr/bin/qdbus-qt5", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.loadScriptInInteractiveConsole", file)
+		errChk(status, err)
+		if strings.Contains(string(out), "Widgets are locked") {
+			fmt.Println("Can't set wallpaper for Plasma because widgets are locked!")
+		}
+		_, status, err = exec.Exec3("/usr/bin/xdotool", "search", "--name", window, "windowactivate", "key", "ctrl+e", "key", "ctrl+w")
+		errChk(status, err)
 	}
 
-	file, err := os.Create("/tmp/jsconsole")
-	errChk(err)
-
-	str := []string{"var wallpaper = " + pic + ";\n",
-		"var activity = activities()[0];\n",
-		"activity.currentConfigGroup = new Array(\"wallpaper\", \"image\");\n",
-		"activity.writeConfig(\"wallpaper\", wallpaper);\n",
-		"activity.writeConfig(\"userswallpaper\", wallpaper);\n",
-		"activity.reloadConfig();\n"}
-
-	for _, s := range str {
-		_, err = file.WriteString(s)
-		errChk(err)
-	}
-
-	err = file.Sync()
-	errChk(err)
-
-	file.Close()
-
-	_, err = exec.Command("/usr/bin/qdbus", "org.kde.plasma-desktop", "/App", "local.PlasmaApp.loadScriptInInteractiveConsole", "/tmp/jsconsole").Output()
-	errChk(err)
-
-	_, err = exec.Command("/usr/bin/xdotool", "search", "--name", jsconsole, "windowactivate", "key", "ctrl+e", "key", "ctrl+w").Output()
-	errChk(err)
-
-	err = os.Remove("/tmp/jsconsole")
-	errChk(err)
-}
-
-func setPlasmaWallpaper(pic string) {
-	str := `string:
-var all = desktops();
-for (i=0;i<all.length;i++) {
-  d = all[i];
-  d.wallpaperPlugin = "org.kde.image";
-  d.currentConfigGroup = Array("Wallpaper", "org.kde.image", "General");
-  d.writeConfig("Image", "file://` + pic + `");
-}`
-
-	out, err := exec.Command("/usr/bin/dbus-send", "--session", "--dest=org.kde.plasmashell", "--type=method_call", "--print-reply", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", str).Output()
-	errChk(err)
-	fmt.Println(string(out))
-	if strings.Contains(string(out), "Widgets are locked") {
-		fmt.Println("Can't set wallpaper for Plasma because widgets are locked!")
+	err := os.Remove(file)
+	if err != nil {
+		panic(err)
 	}
 }
 
@@ -280,15 +287,15 @@ func setXfceWallpaper(pic string) {
 		panic("please install xfconf-query")
 	}
 
-	out, err := exec.Command("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", "/backdrop", "-l").Output()
-	errChk(err)
+	out, status, err := exec.Exec3("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", "/backdrop", "-l")
+	errChk(status, err)
 
 	re := regexp.MustCompile(`(?m)^.*screen.*/monitor.*(image-path|last-image)$`)
 	paths := re.FindAllString(string(out), -1)
 
 	for _, p := range paths {
-		_, err := exec.Command("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", p, "-s", pic).Output()
-		errChk(err)
+		_, status, err := exec.Exec3("/usr/bin/xfconf-query", "--channel", "xfce4-desktop", "--property", p, "-s", pic)
+		errChk(status, err)
 	}
 }
 
