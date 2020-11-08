@@ -15,19 +15,24 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
+	"sync"
 	"time"
 
 	gettext "github.com/chai2010/gettext-go"
+	"github.com/fatih/camelcase"
 	"github.com/gookit/color"
 	"github.com/marguerite/go-stdlib/dir"
 	"github.com/marguerite/go-stdlib/exec"
+	"github.com/marguerite/go-stdlib/fileutils"
 	"github.com/marguerite/go-stdlib/slice"
 	"github.com/marguerite/linux-bing-wallpaper/desktopenvironment"
 	"github.com/urfave/cli"
+	yaml "gopkg.in/yaml.v2"
 )
 
 var (
@@ -81,14 +86,14 @@ func urlChk(resp *http.Response, uri string) bool {
 }
 
 // download the highest resolution
-func downloadWallpaper(xml string, dir string) string {
+func downloadWallpaper(xml string, d string) string {
 	file := ""
 	prefix := getURLPrefix(xml)
 	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x768", "_1280x720", "_1024x768"}
 	// create picture diretory if does not already exist
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		fmt.Println("creating " + dir)
-		err = os.MkdirAll(dir, 0755)
+	if _, err := os.Stat(d); os.IsNotExist(err) {
+		fmt.Println("creating " + d)
+		err = os.MkdirAll(d, 0755)
 		if err != nil {
 			panic(err)
 		}
@@ -110,7 +115,7 @@ func downloadWallpaper(xml string, dir string) string {
 		// bing will not return 301 for redirect
 		if resp.StatusCode == 200 && urlChk(resp, uri) {
 			// KDE can't recognize image file name with "th?id="
-			file = filepath.Join(dir, strings.TrimPrefix(filepath.Base(uri), "th?id="))
+			file = filepath.Join(d, strings.TrimPrefix(filepath.Base(uri), "th?id="))
 			if _, err := os.Stat(file); os.IsNotExist(err) {
 				out, err := os.Create(file)
 				if err != nil {
@@ -218,10 +223,9 @@ func setWallpaper(env, pic, picOpts string) {
 		errChk(status, err)
 	case "xfce":
 		setXfceWallpaper(pic)
-	case "kde4":
+	case "kde4", "plasma5":
 		setPlasmaWallpaper(pic, env)
-	case "plasma5":
-		setPlasmaWallpaper(pic, env)
+	case "none":
 	default:
 		// other netWM/EWMH window manager
 		_, status, err = exec.Exec3("/usr/bin/feh", "--bg-tile", pic)
@@ -292,13 +296,13 @@ func setXfceWallpaper(pic string) {
 	}
 }
 
-func runDaemon(ctx context.Context, c Config, doJob func(c Config), out io.Writer) error {
+func runDaemon(ctx context.Context, c *Config, doJob func(c *Config), out io.Writer) error {
 	log.SetOutput(out)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case <-time.Tick(c.Duration):
+		case <-time.Tick(c.UpdateInterval):
 			doJob(c)
 		}
 	}
@@ -306,16 +310,97 @@ func runDaemon(ctx context.Context, c Config, doJob func(c Config), out io.Write
 
 // Config
 type Config struct {
-	Market   string
-	Dir      string
-	Desktop  string
-	Options  string
-	Duration time.Duration
+	BingMarket         string
+	WallpaperDir       string
+	DesktopEnvironment string
+	PictureOptions     string
+	UpdateInterval     time.Duration
 }
 
-func main() {
-	duration, _ := time.ParseDuration("1m")
+func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
+	file := filepath.Join("/home", os.Getenv("LOGNAME"), ".config", "linux-bing-wallpaper", "config.yaml")
 
+	if _, err := os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
+		dir.MkdirP(filepath.Dir(file))
+	}
+
+	if _, err := os.Stat(file); os.IsNotExist(err) {
+		cwd, _ := os.Getwd()
+		if _, err := os.Stat(filepath.Join(cwd, "config.yaml")); !os.IsNotExist(err) {
+			fileutils.Copy(filepath.Join(cwd, "config.yaml"), file)
+		}
+	}
+
+	b, err := ioutil.ReadFile(file)
+	if err != nil {
+		fmt.Println("can not read config.yaml")
+		if fail {
+			os.Exit(1)
+		} else {
+			return
+		}
+	}
+
+	if ok, err := slice.Contains(typ, "file"); ok && err == nil {
+		// load from file
+		err = yaml.Unmarshal(b, &c)
+		if err != nil {
+			fmt.Println(err)
+			if fail {
+				os.Exit(1)
+			} else {
+				return
+			}
+		}
+	}
+	if ok, err := slice.Contains(typ, "env"); ok && err == nil {
+		// environment variable can overwrite the configs from file
+		cv := reflect.Indirect(reflect.ValueOf(c))
+		for i := 0; i < cv.NumField(); i++ {
+			fieldName := cv.Type().Field(i).Name
+			env := os.Getenv(strings.ToUpper(strings.Join(camelcase.Split(fieldName), "_")))
+			if len(env) > 0 {
+				cv.Field(i).Set(reflect.ValueOf(env))
+			}
+		}
+	}
+	if ok, err := slice.Contains(typ, "cmd"); ok && err == nil {
+		// command-line args overwrite last
+		if len(context.String("market")) > 0 {
+			c.BingMarket = context.String("market")
+		}
+		if len(context.String("dir")) > 0 {
+			c.WallpaperDir = context.String("dir")
+		}
+		if len(context.String("desktop")) > 0 {
+			c.DesktopEnvironment = context.String("desktop")
+		}
+		if len(context.String("picture-options")) > 0 {
+			c.PictureOptions = context.String("picture-options")
+		}
+		if context.Duration("interval") > 0 {
+			c.UpdateInterval = context.Duration("interval")
+		}
+	}
+	// set default values
+	if len(c.DesktopEnvironment) == 0 {
+		c.DesktopEnvironment = desktopenvironment.Name()
+	}
+	if len(c.WallpaperDir) == 0 {
+		c.WallpaperDir = filepath.Join("/home", os.Getenv("LOGNAME"), "Pictures/Bing")
+	}
+	if c.UpdateInterval == 0 {
+		duration, _ := time.ParseDuration("6h")
+		c.UpdateInterval = duration
+	}
+}
+
+var (
+	globalCfg *Config
+	cfgLock = new(sync.RWMutex)
+)
+
+func main() {
 	cli.VersionFlag = cli.BoolFlag{
 		Name:  "version",
 		Usage: "Display version and exit.",
@@ -330,7 +415,6 @@ func main() {
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:  "market, m",
-			Value: "zh-CN",
 			Usage: "The region to use",
 		},
 		cli.BoolFlag{
@@ -342,7 +426,6 @@ func main() {
 		// valid options for lxqt are: color (that is, disabled), stretch, crop, center, tile, zoom
 		cli.StringFlag{
 			Name:  "picture-options, o",
-			Value: "zoom",
 			Usage: "Picture options",
 		},
 		cli.StringFlag{
@@ -355,37 +438,30 @@ func main() {
 		},
 		cli.DurationFlag{
 			Name:  "interval, i",
-			Value: duration,
 			Usage: "The time interval for another run",
 		},
 	}
 
 	app.Action = func(c *cli.Context) error {
-		if ok, err := slice.Contains(markets, c.String("m")); !ok || err != nil {
+		if ok, err := slice.Contains(markets, c.String("market")); !ok || err != nil {
 			fmt.Printf("market must be one of the following: %s\n", strings.Join(markets, " "))
 			os.Exit(1)
-		}
-
-		dir := c.String("dir")
-		if len(dir) == 0 {
-			dir = filepath.Join(os.Getenv("HOME"), "Pictures", "Bing")
-		}
-
-		desktop := c.String("desktop")
-		if len(desktop) == 0 {
-			desktop = desktopenvironment.Name()
 		}
 
 		color.Info.Println("Started linux-bing-wallpaper")
 		dbusChk()
 
-		config := Config{c.String("m"), dir, desktop, c.String("o"), c.Duration("i")}
+		var config *Config
+		config.Load(true, c, "file", "env", "cmd")
+		cfgLock.Lock()
+		globalCfg = config
+		cfgLock.Unlock()
 
-		doJob := func(c Config) {
-			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + c.Market
-			if len(c.Desktop) > 0 {
-				pic := downloadWallpaper(xml, c.Dir)
-				setWallpaper(c.Desktop, pic, c.Options)
+		doJob := func(c *Config) {
+			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + c.BingMarket
+			if len(c.DesktopEnvironment) > 0 {
+				pic := downloadWallpaper(xml, c.WallpaperDir)
+				setWallpaper(c.DesktopEnvironment, pic, c.PictureOptions)
 				color.Info.Printf("Picture saved to: %s\n", pic)
 			}
 		}
@@ -411,7 +487,11 @@ func main() {
 						os.Exit(1)
 					case syscall.SIGHUP:
 						color.Warn.Println("Got SIGHUP, reloading.")
-						// FIXME configuration reload code
+						var cfg *Config
+						cfg.Load(false, c, "file", "env")
+						cfgLock.Lock()
+						globalCfg = cfg
+						cfgLock.Unlock()
 					}
 				case <-ctx.Done():
 					color.Info.Println("Done")
