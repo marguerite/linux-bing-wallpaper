@@ -259,21 +259,13 @@ func setPlasmaWallpaper(pic, env string) {
 		_, status, err = exec.Exec3("/usr/bin/xdotool", "search", "--name", window, "windowactivate", "key", "ctrl+e", "key", "ctrl+w")
 		errChk(status, err)
 	case "plasma5":
-		suffix = "Plasma"
-		window = console + " - " + suffix
-		if len(lang) > 0 {
-			gettext := gettext.New("plasmashellprivateplugin", "/usr/share/locale/kf5").SetLanguage("zh_CN")
-			window = gettext.Gettext(console) + " - " + gettext.Gettext(suffix)
-		}
-		script = "var all = desktops(); for (i=0; i < all.length; i++) { d = all[i]; d.wallpaperPlugin = \"org.kde.image\"; d.currentConfigGroup = Array(\"Wallpaper\", \"org.kde.image\", \"Generate\"); d.writeConfig(\"Image\", \"file://" + pic + "\")}\n"
-		ioutil.WriteFile(file, []byte(script), 0644)
-		out, status, err := exec.Exec3("/usr/bin/qdbus-qt5", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.loadScriptInInteractiveConsole", file)
+    // https://gist.github.com/marguerite/34d687cfaa88888f17bc0777a1c40509
+		script = "for (i in activities()) { activityID = activities()[i]; desktops = desktopsForActivity(activityID); for (j in desktops) { desktop = desktops[j]; desktop.wallpaperPlugin = \"org.kde.image\"; desktop.wallpaperMode = \"Scaled and Cropped\"; desktop.currentConfigGroup = new Array(\"Wallpaper\", \"org.kde.image\", \"General\"); desktop.writeConfig(\"Image\", \"file://" + pic + "\");}}"
+		out, status, err := exec.Exec3("/usr/bin/qdbus-qt5", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", script)
 		errChk(status, err)
 		if strings.Contains(string(out), "Widgets are locked") {
 			fmt.Println("Can't set wallpaper for Plasma because widgets are locked!")
 		}
-		_, status, err = exec.Exec3("/usr/bin/xdotool", "search", "--name", window, "windowactivate", "key", "ctrl+e", "key", "ctrl+w")
-		errChk(status, err)
 	}
 
 	err := os.Remove(file)
