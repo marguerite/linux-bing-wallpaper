@@ -109,7 +109,8 @@ func downloadWallpaper(xml string, dir string) string {
 
 		// bing will not return 301 for redirect
 		if resp.StatusCode == 200 && urlChk(resp, uri) {
-			file = filepath.Join(dir, filepath.Base(uri))
+			// KDE can't recognize image file name with "th?id="
+			file = filepath.Join(dir, strings.TrimPrefix(filepath.Base(uri), "th?id="))
 			if _, err := os.Stat(file); os.IsNotExist(err) {
 				out, err := os.Create(file)
 				if err != nil {
@@ -259,7 +260,7 @@ func setPlasmaWallpaper(pic, env string) {
 		_, status, err = exec.Exec3("/usr/bin/xdotool", "search", "--name", window, "windowactivate", "key", "ctrl+e", "key", "ctrl+w")
 		errChk(status, err)
 	case "plasma5":
-    // https://gist.github.com/marguerite/34d687cfaa88888f17bc0777a1c40509
+		// https://gist.github.com/marguerite/34d687cfaa88888f17bc0777a1c40509
 		script = "for (i in activities()) { activityID = activities()[i]; desktops = desktopsForActivity(activityID); for (j in desktops) { desktop = desktops[j]; desktop.wallpaperPlugin = \"org.kde.image\"; desktop.wallpaperMode = \"Scaled and Cropped\"; desktop.currentConfigGroup = new Array(\"Wallpaper\", \"org.kde.image\", \"General\"); desktop.writeConfig(\"Image\", \"file://" + pic + "\");}}"
 		out, status, err := exec.Exec3("/usr/bin/qdbus-qt5", "org.kde.plasmashell", "/PlasmaShell", "org.kde.PlasmaShell.evaluateScript", script)
 		errChk(status, err)
