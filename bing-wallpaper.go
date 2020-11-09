@@ -209,7 +209,7 @@ func setWallpaper(desktop, pic, opts string) {
 	case "none":
 	default:
 		// other netWM/EWMH window manager
-		_, status, err = exec.Exec3("/usr/bin/feh", "--bg-tile", pic)
+		_, status, err = exec.Exec3("/usr/bin/feh", "--bg-fill", pic)
 		errChk(status, err)
 	}
 }
