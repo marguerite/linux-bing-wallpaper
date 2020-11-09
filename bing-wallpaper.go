@@ -50,7 +50,7 @@ func errChk(status int, e error) {
 	}
 }
 
-func getURLPrefix(uri string) string {
+func getWallpaperURL(uri string) string {
 	resp, err := http.Get(uri)
 	if err != nil {
 		panic(err)
@@ -89,7 +89,7 @@ func urlChk(resp *http.Response, uri string) bool {
 // download the highest resolution
 func downloadWallpaper(xml, directory string) string {
 	var file string
-	prefix := getURLPrefix(xml)
+	prefix := getWallpaperURL(xml)
 
 	// create picture diretory if does not already exist
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
@@ -140,21 +140,20 @@ func downloadWallpaper(xml, directory string) string {
 
 // cron needs the DBUS_SESSION_BUS_ADDRESS env set
 func dbusChk() {
-	if os.Getenv("DBUS_SESSION_BUS_ADDRESS") == "" {
-		fmt.Println("setting DBUS_SESSION_BUS_ADDRESS")
-		path, err := filepath.Glob("/home/" + os.Getenv("LOGNAME") + "/.dbus/session-bus/*")
-		if err != nil {
-			panic(err)
-		}
-		file, err := ioutil.ReadFile(path[0])
-		if err != nil {
-			panic(err)
-		}
-
-		re := regexp.MustCompile("DBUS_SESSION_BUS_ADDRESS='(.*)'")
-		dbus := re.FindStringSubmatch(string(file))[1]
-		os.Setenv("DBUS_SESSION_BUS_ADDRESS", dbus)
+	if len(os.Getenv("DBUS_SESSION_BUS_ADDRESS")) > 0 {
+		return
 	}
+	fmt.Println("setting DBUS_SESSION_BUS_ADDRESS")
+	path, err := filepath.Glob(filepath.Join("/home", os.Getenv("LOGNAME"), "/.dbus/session-bus/*"))
+	if err != nil {
+		panic(err)
+	}
+	b, err := ioutil.ReadFile(path[0])
+	if err != nil {
+		panic(err)
+	}
+	dbus := strings.TrimSpace(strings.TrimPrefix(string(b), "DBUS_SESSION_BUS_ADDRESS="))
+	os.Setenv("DBUS_SESSION_BUS_ADDRESS", dbus)
 }
 
 func gsettingsSetWallpaper(name, pic, opts string) {
