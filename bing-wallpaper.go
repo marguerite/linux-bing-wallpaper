@@ -151,7 +151,7 @@ func dbusChk() {
 	if len(paths) == 0 {
 		return
 	}
-	b, err := ioutil.ReadFile(path[0])
+	b, err := ioutil.ReadFile(paths[0])
 	if err != nil {
 		panic(err)
 	}
