@@ -144,9 +144,12 @@ func dbusChk() {
 		return
 	}
 	fmt.Println("setting DBUS_SESSION_BUS_ADDRESS")
-	path, err := filepath.Glob(filepath.Join("/home", os.Getenv("LOGNAME"), "/.dbus/session-bus/*"))
+	paths, err := filepath.Glob(filepath.Join("/home", os.Getenv("LOGNAME"), "/.dbus/session-bus/*"))
 	if err != nil {
 		panic(err)
+	}
+	if len(paths) == 0 {
+		return
 	}
 	b, err := ioutil.ReadFile(path[0])
 	if err != nil {
@@ -188,7 +191,7 @@ func setWallpaper(desktop, pic, opts string) {
 		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", opts)
 		errChk(status, err)
 	case "mate":
-		_, status, err = exec.Exec3("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic)
+		_, status, err = exec.Exec3("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", "'"+pic+"'")
 		errChk(status, err)
 	case "lxde", "lxqt":
 		cmd := "/usr/bin/pcmanfm"
