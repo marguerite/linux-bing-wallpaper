@@ -1,10 +1,11 @@
 [Unit]
 Description=Bing Wallpaper of the Day as your Linux Desktop's wallpaper
-After=network.target
+After=network-online.target graphical-session.target
+Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/linux-bing-wallpaper.linux.x86_64 -daemon
+ExecStart=/usr/bin/bing-wallpaper -daemon
 Restart=on-failure
 
 [Install]
