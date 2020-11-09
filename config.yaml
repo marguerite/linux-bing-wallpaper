@@ -1,5 +1,6 @@
 bingmarket: "zh-CN"
 wallpaperdir: "/home/zhou/Pictures/Bing"
 desktopenvironment: "none"
-updateinterval: 3s
+updateinterval: 6h
 pictureoptions: ""
+defaultcommand: "/usr/bin/feh --bg-fill"

@@ -168,7 +168,7 @@ func gsettingsSetWallpaper(name, pic, opts string) {
 	errChk(stat, err)
 }
 
-func setWallpaper(desktop, pic, opts string) {
+func setWallpaper(desktop, pic, opts, cmd string) {
 	fmt.Println("setting wallpaper for " + desktop)
 	var status int
 	var err error
@@ -209,7 +209,9 @@ func setWallpaper(desktop, pic, opts string) {
 	case "none":
 	default:
 		// other netWM/EWMH window manager
-		_, status, err = exec.Exec3("/usr/bin/feh", "--bg-fill", pic)
+		arr := strings.Split(cmd, " ")
+		slice.Concat(&arr, pic)
+		_, status, err = exec.Exec3(arr[0], arr[1:]...)
 		errChk(status, err)
 	}
 }
@@ -226,7 +228,7 @@ func setPlasmaWallpaper(pic, env string) {
 	lang = strings.Split(lang, ".")[0]
 	console := "Desktop Shell Scripting Console"
 	var window, suffix, script string
-	prefix := filepath.Join(os.Getenv("HOME"), ".local/share/plasmashell")
+	prefix := filepath.Join("/home", os.Getenv("LOGNAME"), ".local/share/plasmashell")
 	dir.MkdirP(prefix)
 	file := filepath.Join(prefix, "interactiveconsoleautosave.js")
 
@@ -296,6 +298,7 @@ type Config struct {
 	DesktopEnvironment string
 	PictureOptions     string
 	UpdateInterval     time.Duration
+	DefaultCommand     string
 }
 
 func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
@@ -362,6 +365,9 @@ func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
 		if context.Duration("interval") > 0 {
 			c.UpdateInterval = context.Duration("interval")
 		}
+		if len(context.String("command")) > 0 {
+			c.DefaultCommand = context.String("command")
+		}
 	}
 	// set default values
 	if len(c.DesktopEnvironment) == 0 {
@@ -422,6 +428,10 @@ func main() {
 			Name:  "interval, i",
 			Usage: "The time interval for another run",
 		},
+		cli.StringFlag{
+			Name:  "command, c",
+			Usage: "The command to set wallpaper when no desktop environment was detected",
+		},
 	}
 
 	app.Action = func(c *cli.Context) error {
@@ -441,11 +451,11 @@ func main() {
 
 		doJob := func(c *Config) {
 			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + c.BingMarket
-			if len(c.DesktopEnvironment) > 0 {
-				pic := downloadWallpaper(xml, c.WallpaperDir)
-				setWallpaper(c.DesktopEnvironment, pic, c.PictureOptions)
-				color.Info.Printf("Picture saved to: %s\n", pic)
+			pic := downloadWallpaper(xml, c.WallpaperDir)
+			if len(pic) > 0 {
+				setWallpaper(c.DesktopEnvironment, pic, c.PictureOptions, c.DefaultCommand)
 			}
+			color.Info.Printf("Picture saved to: %s\n", pic)
 		}
 
 		if c.Bool("daemon") {
