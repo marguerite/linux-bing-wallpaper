@@ -65,12 +65,12 @@ func getWallpaperURL(uri string) string {
 }
 
 func imageChk(image string, length int) bool {
+	f, err := os.Stat(image)
+	if os.IsNotExist(err) {
+		return false
+	}
 	out, status, err := exec.Exec3("/usr/bin/file", "-L", "--mime-type", "-b", image)
 	errChk(status, err)
-	f, err := os.Stat(image)
-	if err != nil {
-		panic(err)
-	}
 	return strings.HasPrefix(string(out), "image") && f.Size() == int64(length)
 }
 
@@ -114,8 +114,7 @@ func downloadWallpaper(xml, directory string) string {
 		if resp.StatusCode == 200 && urlChk(resp, uri) {
 			// KDE can't recognize image file name with "th?id="
 			file = filepath.Join(directory, strings.TrimPrefix(filepath.Base(uri), "th?id="))
-			_, err := os.Stat(file)
-			if os.IsNotExist(err) || !imageChk(file, contentLength) {
+			if !imageChk(file, contentLength) {
 				os.Remove(file)
 				b, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
@@ -382,12 +381,6 @@ func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
 	}
 }
 
-var (
-	globalCfg  *Config
-	cfgLock    = new(sync.RWMutex)
-	retryTimes int
-)
-
 func main() {
 	cli.VersionFlag = cli.BoolFlag{
 		Name:  "version",
@@ -435,7 +428,7 @@ func main() {
 	}
 
 	app.Action = func(c *cli.Context) error {
-		if ok, err := slice.Contains(markets, c.String("market")); !ok || err != nil {
+		if ok, err := slice.Contains(markets, c.String("market")); len(c.String("market")) > 0 && (!ok || err != nil) {
 			fmt.Printf("market must be one of the following: %s\n", strings.Join(markets, " "))
 			os.Exit(1)
 		}
@@ -443,17 +436,20 @@ func main() {
 		color.Info.Println("Started linux-bing-wallpaper")
 		dbusChk()
 
-		var config *Config
-		config.Load(true, c, "file", "env", "cmd")
+		globalCfg := new(Config)
+		cfgLock := new(sync.RWMutex)
+
+		cfg := new(Config)
+		cfg.Load(true, c, "file", "env", "cmd")
 		cfgLock.Lock()
-		globalCfg = config
+		globalCfg = cfg
 		cfgLock.Unlock()
 
-		doJob := func(c *Config) {
-			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + c.BingMarket
-			pic := downloadWallpaper(xml, c.WallpaperDir)
+		doJob := func(cfg *Config) {
+			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + cfg.BingMarket
+			pic := downloadWallpaper(xml, cfg.WallpaperDir)
 			if len(pic) > 0 {
-				setWallpaper(c.DesktopEnvironment, pic, c.PictureOptions, c.DefaultCommand)
+				setWallpaper(cfg.DesktopEnvironment, pic, cfg.PictureOptions, cfg.DefaultCommand)
 			}
 			color.Info.Printf("Picture saved to: %s\n", pic)
 		}
@@ -479,7 +475,7 @@ func main() {
 						os.Exit(1)
 					case syscall.SIGHUP:
 						color.Warn.Println("Got SIGHUP, reloading.")
-						var cfg *Config
+						cfg := new(Config)
 						cfg.Load(false, c, "file", "env")
 						cfgLock.Lock()
 						globalCfg = cfg
@@ -491,12 +487,12 @@ func main() {
 				}
 			}()
 
-			if err := runDaemon(ctx, config, doJob, os.Stdout); err != nil {
+			if err := runDaemon(ctx, globalCfg, doJob, os.Stdout); err != nil {
 				fmt.Fprintf(os.Stderr, "%s\n", err)
 				os.Exit(1)
 			}
 		} else {
-			doJob(config)
+			doJob(globalCfg)
 		}
 
 		return nil
