@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,8 +20,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"syscall"
 	"sync"
+	"syscall"
 	"time"
 
 	gettext "github.com/chai2010/gettext-go"
@@ -36,7 +37,8 @@ import (
 )
 
 var (
-	markets = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
+	markets     = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
+	resolutions = []string{"1920x1200", "1920x1800", "1366x768", "1280x768", "1280x720", "1024x768"}
 )
 
 func errChk(status int, e error) {
@@ -48,8 +50,8 @@ func errChk(status int, e error) {
 	}
 }
 
-func getURLPrefix(url string) string {
-	resp, err := http.Get(url)
+func getURLPrefix(uri string) string {
+	resp, err := http.Get(uri)
 	if err != nil {
 		panic(err)
 	}
@@ -63,22 +65,21 @@ func getURLPrefix(url string) string {
 }
 
 func imageChk(image string, length int) bool {
-	re := regexp.MustCompile(`^image/`)
 	out, status, err := exec.Exec3("/usr/bin/file", "-L", "--mime-type", "-b", image)
 	errChk(status, err)
-	info, err := os.Stat(image)
+	f, err := os.Stat(image)
 	if err != nil {
 		panic(err)
 	}
-	return re.MatchString(string(out)) && info.Size() == int64(length)
+	return strings.HasPrefix(string(out), "image") && f.Size() == int64(length)
 }
 
 func uriPath(uri string) string {
-	re := regexp.MustCompile(`http(s)?:\/\/[^\/]+(.*)`)
-	if re.MatchString(uri) {
-		return re.FindStringSubmatch(uri)[2]
+	u, err := url.Parse(uri)
+	if err != nil {
+		panic(err)
 	}
-	return ""
+	return u.Path
 }
 
 func urlChk(resp *http.Response, uri string) bool {
@@ -86,72 +87,51 @@ func urlChk(resp *http.Response, uri string) bool {
 }
 
 // download the highest resolution
-func downloadWallpaper(xml string, d string) string {
-	file := ""
+func downloadWallpaper(xml, directory string) string {
+	var file string
 	prefix := getURLPrefix(xml)
-	resolutions := []string{"_1920x1200", "_1920x1080", "_1366x768", "_1280x768", "_1280x720", "_1024x768"}
+
 	// create picture diretory if does not already exist
-	if _, err := os.Stat(d); os.IsNotExist(err) {
-		fmt.Println("creating " + d)
-		err = os.MkdirAll(d, 0755)
-		if err != nil {
-			panic(err)
-		}
+	if _, err := os.Stat(directory); os.IsNotExist(err) {
+		fmt.Println("creating " + directory)
+		dir.MkdirP(directory)
 	}
 
 	for _, res := range resolutions {
-		uri := prefix + res + ".jpg"
+		uri := prefix + "_" + res + ".jpg"
 
 		fmt.Println("upstream uri:" + uri)
 
 		resp, err := http.Get(uri)
+		defer resp.Body.Close()
 		if err != nil {
 			panic(err)
 		}
-		defer resp.Body.Close()
 
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 
 		// bing will not return 301 for redirect
 		if resp.StatusCode == 200 && urlChk(resp, uri) {
 			// KDE can't recognize image file name with "th?id="
-			file = filepath.Join(d, strings.TrimPrefix(filepath.Base(uri), "th?id="))
-			if _, err := os.Stat(file); os.IsNotExist(err) {
-				out, err := os.Create(file)
+			file = filepath.Join(directory, strings.TrimPrefix(filepath.Base(uri), "th?id="))
+			_, err := os.Stat(file)
+			if os.IsNotExist(err) || !imageChk(file, contentLength) {
+				os.Remove(file)
+				b, err := ioutil.ReadAll(resp.Body)
 				if err != nil {
 					panic(err)
 				}
-
-				_, err = io.Copy(out, resp.Body)
-				if err != nil {
-					panic(err)
-				}
-
-				out.Sync()
-				out.Close()
-
+				ioutil.WriteFile(file, b, 0644)
 				if imageChk(file, contentLength) {
 					fmt.Println("downloaded to:" + file)
 					break
 				} else {
-					err = os.Remove(file)
-					if err != nil {
-						panic(err)
-					}
+					os.Remove(file)
 					file = ""
 					continue
 				}
 			} else {
-				if imageChk(file, contentLength) {
-					break
-				} else {
-					err = os.Remove(file)
-					if err != nil {
-						panic(err)
-					}
-					file = ""
-					continue
-				}
+				break
 			}
 		}
 	}
@@ -177,54 +157,53 @@ func dbusChk() {
 	}
 }
 
-func setWallpaper(env, pic, picOpts string) {
-	fmt.Println("setting wallpaper for " + env)
+func gsettingsSetWallpaper(name, pic, opts string) {
+	os.Setenv("DISPLAY", ":0")
+	os.Setenv("GSETTINGS_BACKEND", "dconf")
+	_, stat, err := exec.Exec3("/usr/bin/gsettings", "set", "org."+name+".desktop.background", "picture-uri", "file://"+pic)
+	errChk(stat, err)
+	_, stat, err = exec.Exec3("/usr/bin/gsettings", "set", "org."+name+".desktop.background", "picture-options", opts)
+	errChk(stat, err)
+}
+
+func setWallpaper(desktop, pic, opts string) {
+	fmt.Println("setting wallpaper for " + desktop)
 	var status int
 	var err error
 
-	switch env {
-	case "x-cinnamon":
-		os.Setenv("DISPLAY", ":0")
-		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-uri", "file://"+pic)
-		errChk(status, err)
-		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.cinnamon.desktop.background", "picture-options", picOpts)
-		errChk(status, err)
+	switch desktop {
+	case "x-cinnamon", "gnome3", "dde":
+		var name string
+		switch desktop {
+		case "dde":
+			name = "deepin.wrap.gnome"
+		case "x-cinnamon":
+			name = "cinnamon"
+		default:
+			name = "gnome"
+		}
+		gsettingsSetWallpaper(name, pic, opts)
 	case "gnome":
 		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_filename", pic)
 		errChk(status, err)
-		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", picOpts)
-		errChk(status, err)
-	case "gnome3":
-		os.Setenv("DISPLAY", ":0")
-		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, status, err := exec.Exec3("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-uri", "file://"+pic)
-		errChk(status, err)
-		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "org.gnome.desktop.background", "picture-options", picOpts)
-		errChk(status, err)
-	case "dde":
-		os.Setenv("DISPLAY", ":0")
-		os.Setenv("GSETTINGS_BACKEND", "dconf")
-		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-uri", "file://"+pic)
-		errChk(status, err)
-		_, status, err = exec.Exec3("/usr/bin/gsettings", "set", "com.deepin.wrap.gnome.desktop.background", "picture-options", picOpts)
+		_, status, err = exec.Exec3("/usr/bin/gconftool-2", "-s", "-t", "string", "/desktop/gnome/background/picture_options", opts)
 		errChk(status, err)
 	case "mate":
 		_, status, err = exec.Exec3("/usr/bin/dconf", "write", "/org/mate/desktop/background/picture-filename", pic)
 		errChk(status, err)
 	case "lxde", "lxqt":
 		cmd := "/usr/bin/pcmanfm"
-		if env == "lxqt" {
+		if desktop == "lxqt" {
 			cmd += "-qt"
 		}
 		_, status, err = exec.Exec3(cmd, "-w", pic)
 		errChk(status, err)
-		_, status, err := exec.Exec3(cmd, "--wallpaper-mode", picOpts)
+		_, status, err := exec.Exec3(cmd, "--wallpaper-mode", opts)
 		errChk(status, err)
 	case "xfce":
 		setXfceWallpaper(pic)
 	case "kde4", "plasma5":
-		setPlasmaWallpaper(pic, env)
+		setPlasmaWallpaper(pic, desktop)
 	case "none":
 	default:
 		// other netWM/EWMH window manager
@@ -396,8 +375,9 @@ func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
 }
 
 var (
-	globalCfg *Config
-	cfgLock = new(sync.RWMutex)
+	globalCfg  *Config
+	cfgLock    = new(sync.RWMutex)
+	retryTimes int
 )
 
 func main() {
