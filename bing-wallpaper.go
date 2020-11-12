@@ -103,10 +103,10 @@ func downloadWallpaper(xml, directory string) string {
 		fmt.Println("upstream uri:" + uri)
 
 		resp, err := http.Get(uri)
-		defer resp.Body.Close()
 		if err != nil {
 			panic(err)
 		}
+		defer resp.Body.Close()
 
 		contentLength, _ := strconv.Atoi(resp.Header.Get("Content-Length"))
 
@@ -255,10 +255,7 @@ func setPlasmaWallpaper(pic, env string) {
 		}
 	}
 
-	err := os.Remove(file)
-	if err != nil {
-		panic(err)
-	}
+	os.Remove(file)
 }
 
 func setXfceWallpaper(pic string) {
@@ -278,12 +275,12 @@ func setXfceWallpaper(pic string) {
 	}
 }
 
-func runDaemon(ctx context.Context, c *Config, doJob func(c *Config), out io.Writer) error {
+func runDaemon(ctx context.Context, c *Config, doJob func(c *Config), out io.Writer) {
 	log.SetOutput(out)
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return
 		case <-time.Tick(c.UpdateInterval):
 			doJob(c)
 		}
@@ -449,10 +446,13 @@ func main() {
 			xml := "http://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=" + cfg.BingMarket
 			pic := downloadWallpaper(xml, cfg.WallpaperDir)
 			if len(pic) > 0 {
+				fmt.Printf("Downloaded %s\n", pic)
 				setWallpaper(cfg.DesktopEnvironment, pic, cfg.PictureOptions, cfg.DefaultCommand)
+				fmt.Printf("Set wallpaper for %s\n", cfg.DesktopEnvironment)
 			}
-			color.Info.Printf("Picture saved to: %s\n", pic)
 		}
+
+		doJob(globalCfg)
 
 		if c.Bool("daemon") {
 			ctx := context.Background()
@@ -472,7 +472,7 @@ func main() {
 					case syscall.SIGINT, syscall.SIGTERM:
 						color.Warn.Println("Got SIGINT/SIGTERM, exiting.")
 						cancel()
-						os.Exit(1)
+						os.Exit(0)
 					case syscall.SIGHUP:
 						color.Warn.Println("Got SIGHUP, reloading.")
 						cfg := new(Config)
@@ -483,16 +483,11 @@ func main() {
 					}
 				case <-ctx.Done():
 					color.Info.Println("Done")
-					os.Exit(1)
+					os.Exit(0)
 				}
 			}()
 
-			if err := runDaemon(ctx, globalCfg, doJob, os.Stdout); err != nil {
-				fmt.Fprintf(os.Stderr, "%s\n", err)
-				os.Exit(1)
-			}
-		} else {
-			doJob(globalCfg)
+			runDaemon(ctx, globalCfg, doJob, os.Stdout)
 		}
 
 		return nil

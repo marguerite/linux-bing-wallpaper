@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/bing-wallpaper -daemon
+ExecStart=/usr/bin/bing-wallpaper --daemon
 Restart=on-failure
 
 [Install]
