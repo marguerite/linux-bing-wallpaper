@@ -51,10 +51,23 @@ func errChk(status int, e error) {
 }
 
 func getWallpaperURL(uri string) string {
-	resp, err := http.Get(uri)
-	if err != nil {
-		panic(err)
+	var resp *http.Response
+	var err error
+
+	for {
+		resp, err = http.Get(uri)
+		if err != nil {
+			if strings.Contains(err.Error(), "network is unreachable") {
+				time.Sleep(5 * time.Second)
+				continue
+			} else {
+				panic(err)
+			}
+		} else {
+			break
+		}
 	}
+
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
