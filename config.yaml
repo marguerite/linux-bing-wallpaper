@@ -1,6 +1,6 @@
 bingmarket: "zh-CN"
 wallpaperdir: ""
-desktopenvironment: "none"
+desktopenvironment: ""
 updateinterval: 6h
 pictureoptions: ""
 defaultcommand: "/usr/bin/feh --bg-fill"

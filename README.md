@@ -10,9 +10,14 @@ Install [golang](https://golang.org).
 
     git clone https://github.com/marguerite/linux-bing-wallpaper
     cd linux-bing-wallpaper
-    go build bing-wallpaper.go
+    export GO111MODULE=ON
+    go mod download
+    go mod vendor
+    go build
 
-Copy the generated `bing-wallpaper` somewhere (/usr/bin for example)
+Copy the generated `linux-bing-wallpaper` somewhere (/usr/bin for example)
+
+Fill the config.yaml and copy it to ~/.config/linux-bing-wallpaper/
 
 Run it using cron or systemd user service.
 
@@ -20,12 +25,13 @@ So next time you boot your computer for the first time in a day, it'll update yo
 
 ## Easy commands
 
-        /usr/bin/bing-wallpaper -market=en-US
+        /usr/bin/linux-bing-wallpaper -market=en-US
 
 ## Example cron usage (crontab -e for your user)
+
 ```
 # m h dom mon dow command
-* * * * * /usr/bin/bing-wallpaper -market=en-US
+* * * * * /usr/bin/linux-bing-wallpaper -market=en-US
 ```
 
 ## Example systemd user service usage
@@ -37,21 +43,5 @@ So next time you boot your computer for the first time in a day, it'll update yo
 
 ## Known problems
 
-A: On KDE Plasma 5, you have to unlock your desktop to receive wallpaper updates, there's no other way.
+On KDE Plasma 5(until 5.18), you have to unlock your desktop to receive wallpaper updates, there's no other way.
 
-B: There is a racing problem when running bing-wallpaper with systemd. systemd can't guarantee to start
-it after the desktop. So we may not detect the correct desktop thus can't set it to "WM" blindly.
-
-The solution is:
-
-B1: If the desktop information was resolved to null at system start, bing-wallpaper will retry next hour.
-If still null, then set the desktop to "WM". So for i3/openbox, it will not set your wallpaper immediately.
-
-B2: use my other systemd user services, like checkprocess and network-real-online, to start bing-wallpaper after kde and after network is up and running.
-
-There's no solution for cron for now. But you will hardly meet this case unless you boot your machine
-exactly at the time the cron service runs.
-
-## TODO
-
-allow to specify desktop environment.
