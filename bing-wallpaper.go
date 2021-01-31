@@ -422,7 +422,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "desktop",
-			Usage: "Specify your destkop environment",
+			Usage: "Specify your desktop environment",
 		},
 		cli.StringFlag{
 			Name:  "dir, d",
