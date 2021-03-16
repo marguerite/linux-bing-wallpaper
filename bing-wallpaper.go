@@ -229,16 +229,6 @@ func setWallpaper(desktop, pic, opts, cmd string) {
 }
 
 func setPlasmaWallpaper(pic, env string) {
-	if _, err := exec.Search("/usr/bin/xdotool"); err != nil {
-		panic("please install xdotool")
-	}
-	if _, err := exec.Search("/usr/bin/gettext"); err != nil {
-		panic("please install gettext-runtime")
-	}
-
-	lang, _ := exec.Env("LANG")
-	lang = strings.Split(lang, ".")[0]
-	console := "Desktop Shell Scripting Console"
 	var window, suffix, script string
 	prefix := filepath.Join("/home", os.Getenv("LOGNAME"), ".local/share/plasmashell")
 	dir.MkdirP(prefix)
@@ -246,6 +236,17 @@ func setPlasmaWallpaper(pic, env string) {
 
 	switch env {
 	case "kde4":
+		if _, err := exec.Search("/usr/bin/xdotool"); err != nil {
+			panic("please install xdotool")
+		}
+		if _, err := exec.Search("/usr/bin/gettext"); err != nil {
+			panic("please install gettext-runtime")
+		}
+	
+		lang, _ := exec.Env("LANG")
+		lang = strings.Split(lang, ".")[0]
+		console := "Desktop Shell Scripting Console"
+
 		suffix = "Plasma Desktop Shell"
 		window = console + " - " + suffix
 		if len(lang) > 0 {
@@ -421,7 +422,7 @@ func main() {
 		},
 		cli.StringFlag{
 			Name:  "desktop",
-			Usage: "Specify your destkop environment",
+			Usage: "Specify your desktop environment",
 		},
 		cli.StringFlag{
 			Name:  "dir, d",
