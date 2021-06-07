@@ -10,7 +10,7 @@ Install [golang](https://golang.org).
 
     git clone https://github.com/marguerite/linux-bing-wallpaper
     cd linux-bing-wallpaper
-    export GO111MODULE=ON
+    export GO111MODULE=on
     go mod download
     go mod vendor
     go build
