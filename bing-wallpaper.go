@@ -37,7 +37,7 @@ import (
 )
 
 var (
-	markets     = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA"}
+	markets     = []string{"en-US", "zh-CN", "ja-JP", "en-AU", "en-UK", "de-DE", "fr-FR", "en-NZ", "en-CA" "es-ES" "es-XL" "pt-BR" "pt-PT"}
 	resolutions = []string{"1920x1200", "1920x1800", "1366x768", "1280x768", "1280x720", "1024x768"}
 )
 
