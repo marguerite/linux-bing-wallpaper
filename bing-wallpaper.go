@@ -218,6 +218,9 @@ func setWallpaper(desktop, pic, opts, cmd string) {
 		setXfceWallpaper(pic)
 	case "kde4", "plasma5":
 		setPlasmaWallpaper(pic, desktop)
+	case "sway":
+		_, status, err = exec.Exec3("swaymsg", "output", "*", "bg", ""+pic+"", "fill")
+		errChk(status, err)
 	case "none":
 	default:
 		// other netWM/EWMH window manager
