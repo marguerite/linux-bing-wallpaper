@@ -242,7 +242,7 @@ func setPlasmaWallpaper(pic, env string) {
 		if _, err := exec.Search("/usr/bin/gettext"); err != nil {
 			panic("please install gettext-runtime")
 		}
-	
+
 		lang, _ := exec.Env("LANG")
 		lang = strings.Split(lang, ".")[0]
 		console := "Desktop Shell Scripting Console"
@@ -299,6 +299,19 @@ func runDaemon(ctx context.Context, c *Config, doJob func(c *Config), out io.Wri
 			doJob(c)
 		}
 	}
+}
+
+func getPicturesPath() string {
+	out, status, err := exec.Exec3("xdg-user-dir", "PICTURES")
+	var picPath string
+
+	if err == nil && status == 0 {
+		picPath = string(out)
+		picPath = strings.TrimSpace(picPath)
+	} else {
+		picPath = filepath.Join(os.Getenv("HOME"), "Pictures")
+	}
+	return filepath.Join(picPath, "Bing")
 }
 
 // Config
@@ -384,7 +397,7 @@ func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
 		c.DesktopEnvironment = desktopenvironment.Name()
 	}
 	if len(c.WallpaperDir) == 0 {
-		c.WallpaperDir = filepath.Join("/home", os.Getenv("LOGNAME"), "Pictures/Bing")
+		c.WallpaperDir = getPicturesPath()
 	}
 	if c.UpdateInterval == 0 {
 		duration, _ := time.ParseDuration("6h")
