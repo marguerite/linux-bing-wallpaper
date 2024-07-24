@@ -22,8 +22,9 @@ func Name() string {
 	// assign env in detail
 	switch strings.ToLower(env) {
 	case "kde":
-		if isPlasma5() {
-			env = "plasma5"
+		env_ret := getPlasmaVersion()
+		if env_ret != "" {
+			env = env_ret
 			break
 		}
 		env = "kde4"
@@ -41,8 +42,9 @@ func Name() string {
 		// kde
 		_, err := exec.Env("KDE_FULL_SESSION")
 		if err != nil {
-			if isPlasma5() {
-				env = "plasma5"
+			env_ret := getPlasmaVersion()
+			if env_ret != "" {
+				env = env_ret
 				break
 			}
 			env = "kde4"
@@ -87,19 +89,22 @@ func Name() string {
 	return env
 }
 
-func isPlasma5() bool {
+func getPlasmaVersion() string {
 	if _, err := os.Stat("/usr/bin/plasmashell"); os.IsNotExist(err) {
-		return false
+		return ""
 	}
 	out, status, err := exec.Exec3("/usr/bin/plasmashell", "-v")
 	if status != 0 || err != nil {
-		return false
+		return ""
 	}
 	ver := strings.TrimPrefix(string(out), "plasmashell ")
-	if len(ver) > 0 && strings.HasPrefix(ver, "5") {
-		return true
+	if strings.HasPrefix(ver, "5") {
+		return "plasma5"
 	}
-	return false
+	if strings.HasPrefix(ver, "6") {
+		return "plasma6"
+	}
+	return ""
 }
 
 func isGNOME3() bool {

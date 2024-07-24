@@ -2,7 +2,7 @@
 
 It sets Bing.com wallpaper of the Day as your Linux Desktop
 
-It supports GNOME (2 and 3), KDE 4 / Plasma 5, XFCE4, MATE, Cinnamon, LXDE(LXQT).
+It supports GNOME (2 and 3), KDE 4 / Plasma 5 / Plasma 6, XFCE4, MATE, Cinnamon, LXDE(LXQT).
 
 ## Usage
 
@@ -12,6 +12,7 @@ Install [golang](https://golang.org).
     cd linux-bing-wallpaper
     export GO111MODULE=on
     go mod download
+    go mod tidy
     go mod vendor
     go build
 
