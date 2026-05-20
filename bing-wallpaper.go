@@ -186,6 +186,19 @@ func setWallpaper(desktop, pic, opts, cmd string) {
 	var err error
 
 	switch desktop {
+	case "generic":
+		if len(cmd) > 0 {
+			arr := strings.Split(cmd, " ")
+			slice.Concat(&arr, pic)
+			_, status, err = exec.Exec3(arr[0], arr[1:]...)
+			if status != 0 || err != nil {
+				fmt.Printf("failed to set wallpaper: %v (exit status %d)\n", err, status)
+				return
+			}
+			return
+		}
+		fmt.Println("no command specified, skipping wallpaper set on Wayland")
+		return
 	case "x-cinnamon", "gnome3", "dde":
 		var name string
 		switch desktop {
@@ -316,16 +329,16 @@ func getPicturesPath() string {
 
 // Config
 type Config struct {
-	BingMarket         string
-	WallpaperDir       string
-	DesktopEnvironment string
-	PictureOptions     string
-	UpdateInterval     time.Duration
-	DefaultCommand     string
+	BingMarket         string        `yaml:"BingMarket"`
+	WallpaperDir       string        `yaml:"WallpaperDir"`
+	DesktopEnvironment string        `yaml:"DesktopEnvironment"`
+	PictureOptions     string        `yaml:"PictureOptions"`
+	UpdateInterval     time.Duration `yaml:"UpdateInterval"`
+	DefaultCommand     string        `yaml:"DefaultCommand"`
 }
 
 func (c *Config) Load(fail bool, context *cli.Context, typ ...string) {
-	file := filepath.Join("/home", os.Getenv("LOGNAME"), ".config", "linux-bing-wallpaper", "config.yaml")
+	file := filepath.Join(os.Getenv("HOME"), ".config", "linux-bing-wallpaper", "config.yaml")
 
 	if _, err := os.Stat(filepath.Dir(file)); os.IsNotExist(err) {
 		dir.MkdirP(filepath.Dir(file))
