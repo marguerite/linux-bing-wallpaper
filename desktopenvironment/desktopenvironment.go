@@ -8,8 +8,21 @@ import (
 	"github.com/marguerite/go-stdlib/exec"
 )
 
+func IsWayland() bool {
+	if val, err := exec.Env("WAYLAND_DISPLAY"); err == nil && len(val) > 0 {
+		return true
+	}
+	if val, err := exec.Env("XDG_SESSION_TYPE"); err == nil && strings.ToLower(val) == "wayland" {
+		return true
+	}
+	return false
+}
+
 // Name return the desktop environment name of your system
 func Name() string {
+	if IsWayland() {
+		return "generic"
+	}
 	// roughly get the DE name
 	env, err := exec.Env("XDG_CURRENT_DESKTOP")
 	if err != nil {
